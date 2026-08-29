@@ -17,9 +17,11 @@ class DepartureBatchExporter extends Exporter
         return [
             ExportColumn::make('code'),
             ExportColumn::make('name'),
+            ExportColumn::make('office.name')->label('Kantor Pemilik'),
             ExportColumn::make('departure_date'),
             ExportColumn::make('return_date'),
             ExportColumn::make('capacity'),
+            ExportColumn::make('pax_count'),
             ExportColumn::make('status'),
             ExportColumn::make('is_active'),
             ExportColumn::make('created_at'),
