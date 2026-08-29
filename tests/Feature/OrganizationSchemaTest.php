@@ -2,9 +2,12 @@
 
 namespace Tests\Feature;
 
+use App\Models\Office;
+use App\Models\User;
+use App\Models\UserAssignment;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use InvalidArgumentException;
 use Tests\TestCase;
 
 class OrganizationSchemaTest extends TestCase
@@ -26,28 +29,17 @@ class OrganizationSchemaTest extends TestCase
 
     public function test_assignment_period_cannot_end_before_it_starts(): void
     {
-        $userId = DB::table('users')->insertGetId([
-            'name' => 'Assigned User',
-            'email' => 'assigned@example.test',
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
-        $officeId = DB::table('offices')->insertGetId([
-            'code' => 'JKT',
-            'name' => 'Jakarta',
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
+        $user = User::factory()->create();
+        $office = Office::factory()->create();
 
-        $this->expectExceptionMessageMatches('/valid_until|CHECK|constraint/i');
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessageMatches('/valid_until|period|earlier/i');
 
-        DB::table('user_assignments')->insert([
-            'user_id' => $userId,
-            'office_id' => $officeId,
+        UserAssignment::create([
+            'user_id' => $user->id,
+            'office_id' => $office->id,
             'valid_from' => '2026-02-01',
             'valid_until' => '2026-01-31',
-            'created_at' => now(),
-            'updated_at' => now(),
         ]);
     }
 }

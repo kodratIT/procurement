@@ -24,6 +24,17 @@ class UserAssignment extends Model
         'disabled_at',
     ];
 
+    protected static function booted(): void
+    {
+        static::saving(function (self $assignment): void {
+            if ($assignment->valid_until !== null
+                && $assignment->valid_from !== null
+                && $assignment->valid_until->lt($assignment->valid_from)) {
+                throw new \InvalidArgumentException('valid_until must not be earlier than valid_from.');
+            }
+        });
+    }
+
     protected function casts(): array
     {
         return [
@@ -35,9 +46,28 @@ class UserAssignment extends Model
         ];
     }
 
-    public function user(): BelongsTo { return $this->belongsTo(User::class); }
-    public function office(): BelongsTo { return $this->belongsTo(Office::class); }
-    public function branch(): BelongsTo { return $this->belongsTo(Branch::class); }
-    public function department(): BelongsTo { return $this->belongsTo(Department::class); }
-    public function costCenter(): BelongsTo { return $this->belongsTo(CostCenter::class); }
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class);
+    }
+
+    public function office(): BelongsTo
+    {
+        return $this->belongsTo(Office::class);
+    }
+
+    public function branch(): BelongsTo
+    {
+        return $this->belongsTo(Branch::class);
+    }
+
+    public function department(): BelongsTo
+    {
+        return $this->belongsTo(Department::class);
+    }
+
+    public function costCenter(): BelongsTo
+    {
+        return $this->belongsTo(CostCenter::class);
+    }
 }

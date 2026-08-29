@@ -18,8 +18,12 @@ return new class extends Migration
             $table->string('status', 30)->default('planned')->index();
             $table->boolean('is_active')->default(true)->index();
             $table->timestamps();
-            $table->check('return_date IS NULL OR return_date >= departure_date');
+            $table->rawIndex('(return_date IS NULL OR return_date >= departure_date)', 'departure_batches_return_check');
         });
     }
-    public function down(): void { Schema::dropIfExists('departure_batches'); }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('departure_batches');
+    }
 };
