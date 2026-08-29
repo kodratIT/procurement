@@ -3,7 +3,7 @@
 use App\Http\Controllers\Auth\KeycloakController;
 use Illuminate\Support\Facades\Route;
 
-Route::get('/', fn () => view('welcome'));
+Route::get('/', fn () => redirect()->route('filament.admin.pages.dashboard'))->name('home');
 Route::middleware('guest')->group(function () {
     Route::get('/auth/keycloak/redirect', [KeycloakController::class, 'redirect'])->name('keycloak.redirect');
     Route::get('/auth/keycloak/callback', [KeycloakController::class, 'callback'])->name('keycloak.callback');
