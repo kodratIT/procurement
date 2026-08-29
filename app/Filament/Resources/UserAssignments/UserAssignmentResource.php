@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\UserAssignments;
 
+use App\Filament\Exports\UserAssignmentExporter;
 use App\Filament\Resources\UserAssignments\Pages\ManageUserAssignments;
 use App\Models\UserAssignment;
 use BackedEnum;
@@ -10,6 +11,7 @@ use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
+use Filament\Actions\ExportBulkAction;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Toggle;
@@ -72,6 +74,7 @@ class UserAssignmentResource extends Resource
             SelectFilter::make('is_primary')->options(['1' => 'Primary', '0' => 'Not primary']),
             SelectFilter::make('is_active')->options(['1' => 'Active', '0' => 'Inactive']),
         ])->recordActions([EditAction::make(), DeleteAction::make()])->toolbarActions([
+            ExportBulkAction::make()->exporter(UserAssignmentExporter::class),
             BulkActionGroup::make([
                 BulkAction::make('setPrimary')->label('Set primary')->icon(Heroicon::OutlinedStar)->requiresConfirmation()->action(function (Collection $records): void {
                     DB::transaction(function () use ($records): void {

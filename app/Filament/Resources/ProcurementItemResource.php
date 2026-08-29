@@ -2,10 +2,12 @@
 
 namespace App\Filament\Resources;
 
+use App\Filament\Exports\ProcurementItemExporter;
 use App\Models\ProcurementItem;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
+use Filament\Actions\ExportBulkAction;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
@@ -29,7 +31,7 @@ class ProcurementItemResource extends Resource
 
     public static function table(Table $t): Table
     {
-        return $t->columns([TextColumn::make('code')->searchable(), TextColumn::make('name')->searchable(), TextColumn::make('category.name')->label('Kategori'), TextColumn::make('unit.name')->label('Satuan'), IconColumn::make('is_active')->boolean(), TextColumn::make('variants_count')->counts('variants')->label('Varian')])->recordActions([EditAction::make(), DeleteAction::make()])->toolbarActions([DeleteBulkAction::make()]);
+        return $t->columns([TextColumn::make('code')->searchable(), TextColumn::make('name')->searchable(), TextColumn::make('category.name')->label('Kategori'), TextColumn::make('unit.name')->label('Satuan'), IconColumn::make('is_active')->boolean(), TextColumn::make('variants_count')->counts('variants')->label('Varian')])->recordActions([EditAction::make(), DeleteAction::make()])->toolbarActions([ExportBulkAction::make()->exporter(ProcurementItemExporter::class), DeleteBulkAction::make()]);
     }
 
     public static function getPages(): array

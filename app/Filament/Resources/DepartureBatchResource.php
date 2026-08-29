@@ -2,10 +2,12 @@
 
 namespace App\Filament\Resources;
 
+use App\Filament\Exports\DepartureBatchExporter;
 use App\Models\DepartureBatch;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
+use Filament\Actions\ExportBulkAction;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
@@ -29,7 +31,7 @@ class DepartureBatchResource extends Resource
 
     public static function table(Table $t): Table
     {
-        return $t->columns([TextColumn::make('code')->searchable(), TextColumn::make('name')->searchable(), TextColumn::make('departure_date')->date()->sortable(), TextColumn::make('return_date')->date(), TextColumn::make('status')->badge(), IconColumn::make('is_active')->boolean()])->recordActions([EditAction::make(), DeleteAction::make()])->toolbarActions([DeleteBulkAction::make()]);
+        return $t->columns([TextColumn::make('code')->searchable(), TextColumn::make('name')->searchable(), TextColumn::make('departure_date')->date()->sortable(), TextColumn::make('return_date')->date(), TextColumn::make('status')->badge(), IconColumn::make('is_active')->boolean()])->recordActions([EditAction::make(), DeleteAction::make()])->toolbarActions([ExportBulkAction::make()->exporter(DepartureBatchExporter::class), DeleteBulkAction::make()]);
     }
 
     public static function getPages(): array

@@ -2,10 +2,12 @@
 
 namespace App\Filament\Resources;
 
+use App\Filament\Exports\ProcurementVariantExporter;
 use App\Models\ProcurementVariant;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
+use Filament\Actions\ExportBulkAction;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
@@ -28,7 +30,7 @@ class ProcurementVariantResource extends Resource
 
     public static function table(Table $t): Table
     {
-        return $t->columns([TextColumn::make('item.name')->label('Item')->searchable(), TextColumn::make('code')->searchable(), TextColumn::make('name'), TextColumn::make('value'), IconColumn::make('is_active')->boolean()])->recordActions([EditAction::make(), DeleteAction::make()])->toolbarActions([DeleteBulkAction::make()]);
+        return $t->columns([TextColumn::make('item.name')->label('Item')->searchable(), TextColumn::make('code')->searchable(), TextColumn::make('name'), TextColumn::make('value'), IconColumn::make('is_active')->boolean()])->recordActions([EditAction::make(), DeleteAction::make()])->toolbarActions([ExportBulkAction::make()->exporter(ProcurementVariantExporter::class), DeleteBulkAction::make()]);
     }
 
     public static function getPages(): array
