@@ -127,4 +127,37 @@ class PluginFoundationTest extends TestCase
         $this->assertTrue($admin->can('view procurement'));
         $this->assertTrue($admin->hasPermissionTo('view procurement'));
     }
+
+    public function test_role_policy_restricts_role_management_to_manage_roles_permission(): void
+    {
+        $this->seed(ProcurementRolesSeeder::class);
+
+        $admin = User::factory()->create(['email' => 'admin2@example.test']);
+        $admin->assignRole('Admin');
+
+        $viewer = User::factory()->create(['email' => 'viewer3@example.test']);
+        $viewer->assignRole('Viewer');
+
+        $role = Role::query()->where('name', 'Manager')->firstOrFail();
+
+        $this->assertTrue($admin->can('viewAny', Role::class));
+        $this->assertTrue($admin->can('update', $role));
+        $this->assertFalse($viewer->can('viewAny', Role::class));
+        $this->assertFalse($viewer->can('update', $role));
+    }
+
+    public function test_super_admin_role_bypasses_role_policy(): void
+    {
+        $this->seed(ProcurementRolesSeeder::class);
+
+        Role::findOrCreate('super_admin', 'web');
+
+        $superAdmin = User::factory()->create(['email' => 'super@example.test']);
+        $superAdmin->assignRole('super_admin');
+
+        $role = Role::query()->where('name', 'Manager')->firstOrFail();
+
+        $this->assertTrue($superAdmin->can('viewAny', Role::class));
+        $this->assertTrue($superAdmin->can('update', $role));
+    }
 }
