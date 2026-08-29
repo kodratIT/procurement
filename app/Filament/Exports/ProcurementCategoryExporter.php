@@ -17,7 +17,13 @@ class ProcurementCategoryExporter extends Exporter
         return [
             ExportColumn::make('code'),
             ExportColumn::make('name'),
+            ExportColumn::make('type'),
             ExportColumn::make('description'),
+            ExportColumn::make('requires_batch'),
+            ExportColumn::make('requires_vendor'),
+            ExportColumn::make('receiving'),
+            ExportColumn::make('invoice'),
+            ExportColumn::make('jamaah'),
             ExportColumn::make('is_active'),
             ExportColumn::make('created_at'),
         ];

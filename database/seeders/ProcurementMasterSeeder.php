@@ -21,8 +21,14 @@ class ProcurementMasterSeeder extends Seeder
             $units[$code] = ProcurementUnit::updateOrCreate(['code' => $code], ['name' => $name, 'symbol' => $symbol, 'is_active' => true]);
         }
         $categories = [];
-        foreach ([['PAKAIAN', 'Pakaian Jamaah'], ['IBADAH', 'Perlengkapan Ibadah'], ['KESEHATAN', 'Kesehatan'], ['PERJALANAN', 'Perlengkapan Perjalanan']] as [$code,$name]) {
-            $categories[$code] = ProcurementCategory::updateOrCreate(['code' => $code], ['name' => $name, 'is_active' => true]);
+        $categoryConfigs = [
+            'PAKAIAN' => ['type' => 'goods', 'requires_batch' => true, 'requires_vendor' => true, 'receiving' => true, 'invoice' => true, 'jamaah' => true],
+            'IBADAH' => ['type' => 'goods', 'requires_batch' => true, 'requires_vendor' => true, 'receiving' => true, 'invoice' => true, 'jamaah' => true],
+            'KESEHATAN' => ['type' => 'goods', 'requires_batch' => false, 'requires_vendor' => true, 'receiving' => true, 'invoice' => true, 'jamaah' => false],
+            'PERJALANAN' => ['type' => 'mixed', 'requires_batch' => true, 'requires_vendor' => true, 'receiving' => true, 'invoice' => true, 'jamaah' => true],
+        ];
+        foreach ([['PAKAIAN', 'Pakaian Jamaah'], ['IBADAH', 'Perlengkapan Ibadah'], ['KESEHATAN', 'Kesehatan'], ['PERJALANAN', 'Perlengkapan Perjalanan']] as [$code, $name]) {
+            $categories[$code] = ProcurementCategory::updateOrCreate(['code' => $code], ['name' => $name, ...$categoryConfigs[$code], 'is_active' => true]);
         }
         $items = [
             ['KAIN-IHRAM', 'Kain Ihram', 'PAKAIAN', 'SET'], ['MUKENA', 'Mukena', 'IBADAH', 'PCS'],
