@@ -10,7 +10,15 @@ class ProcurementVariant extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['item_id', 'code', 'name', 'value', 'is_active'];
+    public const TYPE_UKURAN = 'ukuran';
+
+    public const TYPE_WARNA = 'warna';
+
+    public const TYPE_BAHAN = 'bahan';
+
+    public const TYPES = [self::TYPE_UKURAN, self::TYPE_WARNA, self::TYPE_BAHAN];
+
+    protected $fillable = ['item_id', 'variation_type', 'code', 'name', 'value', 'is_active'];
 
     protected function casts(): array
     {

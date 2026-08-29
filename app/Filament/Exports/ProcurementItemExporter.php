@@ -19,8 +19,11 @@ class ProcurementItemExporter extends Exporter
             ExportColumn::make('name'),
             ExportColumn::make('category.name')->label('Kategori'),
             ExportColumn::make('unit.name')->label('Satuan'),
+            ExportColumn::make('reference_price')->label('Harga Referensi'),
+            ExportColumn::make('reference_currency')->label('Mata Uang'),
             ExportColumn::make('description'),
-            ExportColumn::make('is_active'),
+            ExportColumn::make('specifications')->label('Spesifikasi'),
+            ExportColumn::make('is_active')->label('Aktif'),
             ExportColumn::make('created_at'),
         ];
     }

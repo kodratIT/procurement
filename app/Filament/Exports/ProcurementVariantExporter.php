@@ -15,11 +15,12 @@ class ProcurementVariantExporter extends Exporter
     public static function getColumns(): array
     {
         return [
+            ExportColumn::make('item.name')->label('Item'),
+            ExportColumn::make('variation_type')->label('Tipe Variasi'),
             ExportColumn::make('code'),
             ExportColumn::make('name'),
             ExportColumn::make('value'),
-            ExportColumn::make('item.name')->label('Item'),
-            ExportColumn::make('is_active'),
+            ExportColumn::make('is_active')->label('Aktif'),
             ExportColumn::make('created_at'),
         ];
     }
