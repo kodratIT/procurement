@@ -5,6 +5,7 @@ namespace App\Filament\Resources\UserAssignments;
 use App\Filament\Exports\UserAssignmentExporter;
 use App\Filament\Resources\UserAssignments\Pages\ManageUserAssignments;
 use App\Models\UserAssignment;
+use App\Services\AssignmentBulkService;
 use BackedEnum;
 use Filament\Actions\BulkAction;
 use Filament\Actions\BulkActionGroup;
@@ -15,6 +16,7 @@ use Filament\Actions\ExportBulkAction;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Toggle;
+use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
@@ -23,7 +25,7 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Support\Collection;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
 use Spatie\Permission\Models\Role;
 
@@ -43,11 +45,11 @@ class UserAssignmentResource extends Resource
     {
         return $schema->components([
             Select::make('user_id')->label('User')->relationship('user', 'name')->searchable()->preload()->required(),
-            Select::make('office_id')->label('Kantor')->relationship('office', 'name', fn (Builder $query) => $query->where('is_active', true))->searchable()->preload()->required()->live(),
-            Select::make('role')->label('Role')->options(fn (): array => Role::query()->where('guard_name', 'web')->orderBy('name')->pluck('name', 'name')->all())->searchable()->required(),
-            Select::make('branch_id')->label('Cabang')->relationship('branch', 'name', fn (Builder $query) => $query->where('is_active', true))->searchable()->preload(),
-            Select::make('department_id')->label('Departemen')->relationship('department', 'name', fn (Builder $query) => $query->where('is_active', true))->searchable()->preload(),
-            Select::make('cost_center_id')->label('Cost center')->relationship('costCenter', 'name', fn (Builder $query) => $query->where('is_active', true))->searchable()->preload(),
+            Select::make('office_id')->label('Kantor')->relationship('office', 'name', fn (Builder $query) => $query->where('is_active', true)->whereNull('disabled_at'))->searchable()->preload()->required()->live(),
+            Select::make('role')->label('Role')->options(fn (): array => Role::query()->where('guard_name', 'web')->orderBy('name')->pluck('name', 'name')->all())->searchable()->required()->default(UserAssignment::DEFAULT_ROLE),
+            Select::make('branch_id')->label('Cabang')->relationship('branch', 'name', fn (Builder $query) => $query->where('is_active', true)->whereNull('disabled_at'))->searchable()->preload(),
+            Select::make('department_id')->label('Departemen')->relationship('department', 'name', fn (Builder $query) => $query->where('is_active', true)->whereNull('disabled_at'))->searchable()->preload(),
+            Select::make('cost_center_id')->label('Cost center')->relationship('costCenter', 'name', fn (Builder $query) => $query->where('is_active', true)->whereNull('disabled_at'))->searchable()->preload(),
             Toggle::make('is_primary')->label('Primary assignment')->default(false),
             DatePicker::make('valid_from')->label('Valid from')->required(),
             DatePicker::make('valid_until')->label('Valid until')->afterOrEqual('valid_from'),
@@ -56,39 +58,60 @@ class UserAssignmentResource extends Resource
 
     public static function table(Table $table): Table
     {
-        return $table->columns([
-            TextColumn::make('user.name')->label('User')->searchable()->sortable(),
-            TextColumn::make('office.name')->label('Kantor')->searchable()->sortable(),
-            TextColumn::make('role')->badge()->searchable(),
-            TextColumn::make('branch.name')->label('Cabang')->toggleable(),
-            TextColumn::make('department.name')->label('Departemen')->toggleable(),
-            TextColumn::make('costCenter.name')->label('Cost center')->toggleable(),
-            IconColumn::make('is_primary')->label('Primary')->boolean(),
-            IconColumn::make('is_active')->label('Active')->boolean(),
-            TextColumn::make('valid_from')->date()->sortable(),
-            TextColumn::make('valid_until')->date()->sortable()->toggleable(),
-        ])->filters([
-            SelectFilter::make('user')->relationship('user', 'name')->searchable()->preload(),
-            SelectFilter::make('office')->relationship('office', 'name')->searchable()->preload(),
-            SelectFilter::make('role')->options(fn (): array => UserAssignment::query()->whereNotNull('role')->distinct()->orderBy('role')->pluck('role', 'role')->all()),
-            SelectFilter::make('is_primary')->options(['1' => 'Primary', '0' => 'Not primary']),
-            SelectFilter::make('is_active')->options(['1' => 'Active', '0' => 'Inactive']),
-        ])->recordActions([EditAction::make(), DeleteAction::make()])->toolbarActions([
-            ExportBulkAction::make()->exporter(UserAssignmentExporter::class),
-            BulkActionGroup::make([
-                BulkAction::make('setPrimary')->label('Set primary')->icon(Heroicon::OutlinedStar)->requiresConfirmation()->action(function (Collection $records): void {
-                    DB::transaction(function () use ($records): void {
-                        foreach ($records as $assignment) {
-                            UserAssignment::query()->where('user_id', $assignment->user_id)->update(['is_primary' => false]);
-                            $assignment->update(['is_primary' => true]);
-                        }
-                    });
-                }),
-                BulkAction::make('activate')->label('Activate')->action(fn (Collection $records) => $records->each->update(['is_active' => true])),
-                BulkAction::make('deactivate')->label('Deactivate')->requiresConfirmation()->action(fn (Collection $records) => $records->each->update(['is_active' => false])),
-                DeleteBulkAction::make(),
-            ]),
-        ]);
+        return $table
+            ->defaultGroup('user.name')
+            ->columns([
+                TextColumn::make('user.name')->label('User')->searchable()->sortable(),
+                TextColumn::make('office.name')->label('Kantor')->searchable()->sortable(),
+                TextColumn::make('role')->badge()->searchable(),
+                TextColumn::make('branch.name')->label('Cabang')->toggleable(),
+                TextColumn::make('department.name')->label('Departemen')->toggleable(),
+                TextColumn::make('costCenter.name')->label('Cost center')->toggleable(),
+                IconColumn::make('is_primary')->label('Primary')->boolean(),
+                IconColumn::make('is_active')->label('Active')->boolean(),
+                TextColumn::make('valid_from')->date()->sortable(),
+                TextColumn::make('valid_until')->date()->sortable()->toggleable(),
+            ])
+            ->filters([
+                SelectFilter::make('user')->relationship('user', 'name')->searchable()->preload(),
+                SelectFilter::make('office')->relationship('office', 'name')->searchable()->preload(),
+                SelectFilter::make('role')->options(fn (): array => UserAssignment::query()->whereNotNull('role')->distinct()->orderBy('role')->pluck('role', 'role')->all()),
+                SelectFilter::make('is_primary')->options(['1' => 'Primary', '0' => 'Not primary']),
+                SelectFilter::make('is_active')->options(['1' => 'Active', '0' => 'Inactive']),
+            ])
+            ->recordActions([EditAction::make(), DeleteAction::make()])
+            ->toolbarActions([
+                ExportBulkAction::make()->exporter(UserAssignmentExporter::class),
+                BulkActionGroup::make([
+                    BulkAction::make('extendValidity')
+                        ->label('Perpanjang masa berlaku')
+                        ->icon(Heroicon::OutlinedCalendarDays)
+                        ->form([
+                            DatePicker::make('valid_from')->label('Valid from baru (opsional)'),
+                            DatePicker::make('valid_until')->label('Valid until baru (opsional)'),
+                        ])
+                        ->action(function (Collection $records, array $data): void {
+                            $count = app(AssignmentBulkService::class)->extendValidity(
+                                $records,
+                                $data['valid_from'] ?? null,
+                                $data['valid_until'] ?? null,
+                            );
+
+                            Notification::make()->title("{$count} assignment diperbarui")->success()->send();
+                        }),
+                    BulkAction::make('setPrimary')->label('Set primary')->icon(Heroicon::OutlinedStar)->requiresConfirmation()->action(function (Collection $records): void {
+                        DB::transaction(function () use ($records): void {
+                            foreach ($records as $assignment) {
+                                UserAssignment::query()->where('user_id', $assignment->user_id)->update(['is_primary' => false]);
+                                $assignment->update(['is_primary' => true]);
+                            }
+                        });
+                    }),
+                    BulkAction::make('activate')->label('Activate')->action(fn (Collection $records) => $records->each->update(['is_active' => true])),
+                    BulkAction::make('deactivate')->label('Deactivate')->requiresConfirmation()->action(fn (Collection $records) => $records->each->update(['is_active' => false])),
+                    DeleteBulkAction::make(),
+                ]),
+            ]);
     }
 
     public static function getEloquentQuery(): Builder
