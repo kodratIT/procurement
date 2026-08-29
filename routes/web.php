@@ -11,4 +11,4 @@ Route::middleware('guest')->group(function () {
 });
 Route::post('/logout', [KeycloakController::class, 'logout'])->middleware('auth')->name('logout');
 Route::post('/office/switch', [OfficeContextController::class, 'switch'])
-    ->middleware(['auth', 'active.office'])->name('office.switch');
+    ->middleware('auth')->name('office.switch');

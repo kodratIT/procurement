@@ -15,6 +15,7 @@ class DepartureBatchExporter extends Exporter
     public static function getColumns(): array
     {
         return [
+            ExportColumn::make('office.name')->label('Kantor'),
             ExportColumn::make('code'),
             ExportColumn::make('name'),
             ExportColumn::make('departure_date'),

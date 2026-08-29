@@ -3,6 +3,7 @@
 namespace App\Filament\Resources;
 
 use App\Filament\Exports\DepartureBatchExporter;
+use App\Filament\Tables\Filters\OfficeFilter;
 use App\Models\DepartureBatch;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
@@ -26,12 +27,31 @@ class DepartureBatchResource extends Resource
 
     public static function form(Schema $s): Schema
     {
-        return $s->components([TextInput::make('code')->required()->unique(ignoreRecord: true), TextInput::make('name')->required(), DatePicker::make('departure_date')->required(), DatePicker::make('return_date')->afterOrEqual('departure_date'), TextInput::make('capacity')->numeric()->minValue(1), Select::make('status')->options(['planned' => 'Planned', 'open' => 'Open', 'closed' => 'Closed', 'departed' => 'Departed'])->default('planned')->required(), Toggle::make('is_active')->default(true)]);
+        return $s->components([
+            Select::make('office_id')->label('Kantor')->relationship('office', 'name')->searchable()->preload()->required(),
+            TextInput::make('code')->required()->unique(ignoreRecord: true),
+            TextInput::make('name')->required(),
+            DatePicker::make('departure_date')->required(),
+            DatePicker::make('return_date')->afterOrEqual('departure_date'),
+            TextInput::make('capacity')->numeric()->minValue(1),
+            Select::make('status')->options(['planned' => 'Planned', 'open' => 'Open', 'closed' => 'Closed', 'departed' => 'Departed'])->default('planned')->required(),
+            Toggle::make('is_active')->default(true),
+        ])->columns(2);
     }
 
     public static function table(Table $t): Table
     {
-        return $t->columns([TextColumn::make('code')->searchable(), TextColumn::make('name')->searchable(), TextColumn::make('departure_date')->date()->sortable(), TextColumn::make('return_date')->date(), TextColumn::make('status')->badge(), IconColumn::make('is_active')->boolean()])->recordActions([EditAction::make(), DeleteAction::make()])->toolbarActions([ExportBulkAction::make()->exporter(DepartureBatchExporter::class), DeleteBulkAction::make()]);
+        return $t->columns([
+            TextColumn::make('office.name')->label('Kantor')->sortable(),
+            TextColumn::make('code')->searchable(),
+            TextColumn::make('name')->searchable(),
+            TextColumn::make('departure_date')->date()->sortable(),
+            TextColumn::make('return_date')->date(),
+            TextColumn::make('status')->badge(),
+            IconColumn::make('is_active')->boolean(),
+        ])->filters([
+            OfficeFilter::make('office'),
+        ])->recordActions([EditAction::make(), DeleteAction::make()])->toolbarActions([ExportBulkAction::make()->exporter(DepartureBatchExporter::class), DeleteBulkAction::make()]);
     }
 
     public static function getPages(): array
