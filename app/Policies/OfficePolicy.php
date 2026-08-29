@@ -11,7 +11,9 @@ class OfficePolicy
     public function viewAny(User $user): bool
     {
         return $user->assignments()->where('is_active', true)->whereDate('valid_from', '<=', Carbon::today())
-            ->where(fn ($query) => $query->whereNull('valid_until')->orWhereDate('valid_until', '>=', Carbon::today()))->exists();
+            ->where(fn ($query) => $query->whereNull('valid_until')->orWhereDate('valid_until', '>=', Carbon::today()))
+            ->whereHas('office', fn ($query) => $query->where('is_active', true)->whereNull('disabled_at'))
+            ->exists();
     }
 
     public function view(User $user, Office $office): bool
@@ -26,10 +28,5 @@ class OfficePolicy
     public function select(User $user, Office $office): bool
     {
         return $this->view($user, $office);
-    }
-
-    public function update(User $user, Office $office): bool
-    {
-        return $user->can('manage offices') || $this->view($user, $office);
     }
 }
