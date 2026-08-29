@@ -1,18 +1,40 @@
 <?php
+
 namespace App\Filament\Resources;
+
 use App\Models\ProcurementCategory;
-use Filament\Actions\{CreateAction,DeleteAction,DeleteBulkAction,EditAction};
-use Filament\Forms\Components\{TextInput,Textarea,Toggle};
+use Filament\Actions\DeleteAction;
+use Filament\Actions\DeleteBulkAction;
+use Filament\Actions\EditAction;
+use Filament\Forms\Components\Textarea;
+use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\Toggle;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
-use Filament\Tables\Columns\{IconColumn,TextColumn};
+use Filament\Tables\Columns\IconColumn;
+use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
+
 class ProcurementCategoryResource extends Resource
 {
     protected static ?string $model = ProcurementCategory::class;
+
     protected static ?string $navigationLabel = 'Kategori';
+
     protected static ?string $modelLabel = 'kategori';
-    public static function form(Schema $schema): Schema { return $schema->components([TextInput::make('code')->required()->unique(ignoreRecord:true)->maxLength(50), TextInput::make('name')->required()->maxLength(255), Textarea::make('description')->columnSpanFull(), Toggle::make('is_active')->default(true)]); }
-    public static function table(Table $table): Table { return $table->columns([TextColumn::make('code')->searchable()->sortable(),TextColumn::make('name')->searchable()->sortable(),IconColumn::make('is_active')->boolean(),TextColumn::make('items_count')->counts('items')->label('Items')])->recordActions([EditAction::make(),DeleteAction::make()])->toolbarActions([DeleteBulkAction::make()]); }
-    public static function getPages(): array { return ['index'=>Pages\ManageProcurementCategories::route('/')]; }
+
+    public static function form(Schema $schema): Schema
+    {
+        return $schema->components([TextInput::make('code')->required()->unique(ignoreRecord: true)->maxLength(50), TextInput::make('name')->required()->maxLength(255), Textarea::make('description')->columnSpanFull(), Toggle::make('is_active')->default(true)]);
+    }
+
+    public static function table(Table $table): Table
+    {
+        return $table->columns([TextColumn::make('code')->searchable()->sortable(), TextColumn::make('name')->searchable()->sortable(), IconColumn::make('is_active')->boolean(), TextColumn::make('items_count')->counts('items')->label('Items')])->recordActions([EditAction::make(), DeleteAction::make()])->toolbarActions([DeleteBulkAction::make()]);
+    }
+
+    public static function getPages(): array
+    {
+        return ['index' => Pages\ManageProcurementCategories::route('/')];
+    }
 }

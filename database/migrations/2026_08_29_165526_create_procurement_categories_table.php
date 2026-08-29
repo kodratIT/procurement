@@ -18,5 +18,8 @@ return new class extends Migration
         });
     }
 
-    public function down(): void { Schema::dropIfExists('procurement_categories'); }
+    public function down(): void
+    {
+        Schema::dropIfExists('procurement_categories');
+    }
 };

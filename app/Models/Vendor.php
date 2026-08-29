@@ -8,6 +8,11 @@ use Illuminate\Database\Eloquent\Model;
 class Vendor extends Model
 {
     use HasFactory;
+
     protected $fillable = ['code', 'name', 'contact_name', 'phone', 'email', 'address', 'is_active'];
-    protected function casts(): array { return ['is_active' => 'boolean']; }
+
+    protected function casts(): array
+    {
+        return ['is_active' => 'boolean'];
+    }
 }

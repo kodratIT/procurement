@@ -77,9 +77,9 @@ class KeycloakController extends Controller
         }
 
         $user = $provisioner->provision($claims);
-        if (! $user->offices()->exists()) {
+        if (! $user->hasActiveAssignment()) {
             Auth::logout();
-            throw ValidationException::withMessages(['email' => 'Your account has no office assignment. Contact an administrator.']);
+            throw ValidationException::withMessages(['email' => 'Your account has no active office assignment. Contact an administrator.']);
         }
         Auth::login($user, remember: false);
 

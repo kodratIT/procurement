@@ -19,5 +19,9 @@ return new class extends Migration
             $table->unique(['item_id', 'code']);
         });
     }
-    public function down(): void { Schema::dropIfExists('procurement_variants'); }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('procurement_variants');
+    }
 };

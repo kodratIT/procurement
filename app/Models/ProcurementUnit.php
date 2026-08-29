@@ -9,7 +9,16 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class ProcurementUnit extends Model
 {
     use HasFactory;
+
     protected $fillable = ['code', 'name', 'symbol', 'is_active'];
-    protected function casts(): array { return ['is_active' => 'boolean']; }
-    public function items(): HasMany { return $this->hasMany(ProcurementItem::class, 'unit_id'); }
+
+    protected function casts(): array
+    {
+        return ['is_active' => 'boolean'];
+    }
+
+    public function items(): HasMany
+    {
+        return $this->hasMany(ProcurementItem::class, 'unit_id');
+    }
 }

@@ -17,5 +17,9 @@ return new class extends Migration
             $table->timestamps();
         });
     }
-    public function down(): void { Schema::dropIfExists('procurement_units'); }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('procurement_units');
+    }
 };

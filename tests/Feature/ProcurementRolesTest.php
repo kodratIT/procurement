@@ -9,6 +9,7 @@ use App\Models\User;
 use App\Support\ProcurementPermissions;
 use Database\Seeders\ProcurementRolesSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
@@ -32,7 +33,7 @@ class ProcurementRolesTest extends TestCase
 
         $this->assertEqualsCanonicalizing(
             ProcurementPermissions::all(),
-            \Spatie\Permission\Models\Permission::query()->pluck('name')->all(),
+            Permission::query()->pluck('name')->all(),
         );
     }
 

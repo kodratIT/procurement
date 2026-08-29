@@ -20,5 +20,9 @@ return new class extends Migration
             $table->timestamps();
         });
     }
-    public function down(): void { Schema::dropIfExists('vendors'); }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('vendors');
+    }
 };

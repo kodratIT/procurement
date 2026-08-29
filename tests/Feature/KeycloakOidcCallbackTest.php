@@ -4,7 +4,9 @@ namespace Tests\Feature;
 
 use App\Models\Office;
 use App\Models\User;
+use App\Models\UserAssignment;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
@@ -82,7 +84,12 @@ class KeycloakOidcCallbackTest extends TestCase
     {
         $office = Office::factory()->create(['code' => 'JKT', 'name' => 'Jakarta']);
         $existing = User::factory()->create(['keycloak_sub' => 'immutable-sub-1', 'email' => 'budi@example.test']);
-        $existing->offices()->attach($office);
+        UserAssignment::factory()->create([
+            'user_id' => $existing->id,
+            'office_id' => $office->id,
+            'valid_from' => Carbon::yesterday(),
+            'is_active' => true,
+        ]);
 
         $idToken = $this->idToken(['iss' => self::ISSUER, 'aud' => self::CLIENT_ID]);
         $state = 'valid-state';
@@ -108,7 +115,8 @@ class KeycloakOidcCallbackTest extends TestCase
         $this->assertNotNull($user);
         $this->assertSame('Budi Santoso', $user->name);
         $this->assertSame('budi@example.test', $user->email);
-        $this->assertTrue($user->offices()->whereKey($office)->exists());
+        $this->assertTrue($user->assignments()->where('office_id', $office->id)->exists());
+        $this->assertTrue($user->hasActiveAssignment());
 
         Http::assertSent(function ($request) {
             if (! str_ends_with((string) $request->url(), '/token')) {

@@ -10,6 +10,8 @@ class UserAssignment extends Model
 {
     use HasFactory;
 
+    public const DEFAULT_ROLE = 'Viewer';
+
     protected $fillable = [
         'user_id',
         'office_id',
@@ -26,6 +28,12 @@ class UserAssignment extends Model
 
     protected static function booted(): void
     {
+        static::creating(function (self $assignment): void {
+            if ($assignment->role === null) {
+                $assignment->role = self::DEFAULT_ROLE;
+            }
+        });
+
         static::saving(function (self $assignment): void {
             if ($assignment->valid_until !== null
                 && $assignment->valid_from !== null
