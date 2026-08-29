@@ -16,6 +16,7 @@ class UserAssignment extends Model
         'branch_id',
         'department_id',
         'cost_center_id',
+        'role',
         'valid_from',
         'valid_until',
         'is_primary',
@@ -34,28 +35,9 @@ class UserAssignment extends Model
         ];
     }
 
-    public function user(): BelongsTo
-    {
-        return $this->belongsTo(User::class);
-    }
-
-    public function office(): BelongsTo
-    {
-        return $this->belongsTo(Office::class);
-    }
-
-    public function branch(): BelongsTo
-    {
-        return $this->belongsTo(Branch::class);
-    }
-
-    public function department(): BelongsTo
-    {
-        return $this->belongsTo(Department::class);
-    }
-
-    public function costCenter(): BelongsTo
-    {
-        return $this->belongsTo(CostCenter::class);
-    }
+    public function user(): BelongsTo { return $this->belongsTo(User::class); }
+    public function office(): BelongsTo { return $this->belongsTo(Office::class); }
+    public function branch(): BelongsTo { return $this->belongsTo(Branch::class); }
+    public function department(): BelongsTo { return $this->belongsTo(Department::class); }
+    public function costCenter(): BelongsTo { return $this->belongsTo(CostCenter::class); }
 }
