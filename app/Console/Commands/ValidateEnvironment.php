@@ -24,6 +24,16 @@ class ValidateEnvironment extends Command
 
             return self::FAILURE;
         }
+        if (! filter_var(env('KEYCLOAK_REDIRECT_URI'), FILTER_VALIDATE_URL)) {
+            $this->error('KEYCLOAK_REDIRECT_URI must be a valid URL.');
+
+            return self::FAILURE;
+        }
+        if (str_contains((string) env('KEYCLOAK_BASE_URL'), ' ')) {
+            $this->error('KEYCLOAK_BASE_URL must not contain whitespace.');
+
+            return self::FAILURE;
+        }
         $this->info('Environment configuration is valid.');
 
         return self::SUCCESS;

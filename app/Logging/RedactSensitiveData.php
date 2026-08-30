@@ -15,8 +15,20 @@ final class RedactSensitiveData implements ProcessorInterface
     public function __invoke(LogRecord $record): LogRecord
     {
         return $record->with(
+            message: $this->redactMessage($record->message),
             context: $this->redact($record->context),
             extra: $this->redact($record->extra),
+        );
+    }
+
+    private function redactMessage(string $message): string
+    {
+        $keys = implode('|', self::SENSITIVE_KEYS);
+
+        return (string) preg_replace(
+            '/\\b('.$keys.')\\s*[:=]\\s*[^\\s,;]+/i',
+            '$1=[REDACTED]',
+            $message,
         );
     }
 

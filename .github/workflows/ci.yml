@@ -3,6 +3,10 @@ on: [push, pull_request]
 jobs:
   test:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        php-version: ['8.3', '8.4']
     services:
       postgres:
         image: postgres:16
@@ -14,7 +18,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: shivammathur/setup-php@v2
-        with: { php-version: '8.4', extensions: mbstring, pdo_pgsql, tools: composer:v2 }
+        with: { php-version: '${{ matrix.php-version }}', extensions: mbstring, pdo_pgsql, tools: composer:v2 }
       - run: composer install --no-interaction --prefer-dist
       - run: cp .env.example .env && php artisan key:generate
       - run: composer validate --strict --no-check-publish
