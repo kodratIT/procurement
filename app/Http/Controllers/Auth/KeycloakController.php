@@ -79,7 +79,9 @@ class KeycloakController extends Controller
 
         $user = $provisioner->provision($claims);
         if (! $user->hasActiveAssignment()) {
-            Auth::logout();
+            if (Auth::check()) {
+                Auth::logout();
+            }
             DB::table(config('activitylog.table_name', 'activity_log'))->insert([
                 'log_name' => 'keycloak',
                 'event' => 'keycloak.sign_in_denied',

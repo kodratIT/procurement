@@ -7,6 +7,7 @@ use App\Models\User;
 use App\Models\UserAssignment;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
@@ -117,6 +118,13 @@ class KeycloakOidcCallbackTest extends TestCase
         $this->assertSame('budi@example.test', $user->email);
         $this->assertTrue($user->assignments()->where('office_id', $office->id)->exists());
         $this->assertTrue($user->hasActiveAssignment());
+        $this->assertDatabaseHas('activity_log', [
+            'event' => 'keycloak.sign_in_succeeded',
+            'causer_id' => $user->id,
+        ]);
+        $audit = DB::table('activity_log')->where('event', 'keycloak.sign_in_succeeded')->first();
+        $this->assertStringNotContainsString('access-token', (string) $audit->properties);
+        $this->assertStringNotContainsString($idToken, (string) $audit->properties);
 
         Http::assertSent(function ($request) {
             if (! str_ends_with((string) $request->url(), '/token')) {
@@ -129,6 +137,37 @@ class KeycloakOidcCallbackTest extends TestCase
                 && $request['client_id'] === self::CLIENT_ID
                 && $request['redirect_uri'] === self::REDIRECT_URI;
         });
+    }
+
+    public function test_callback_denies_user_without_assignment_and_records_safe_audit_event(): void
+    {
+        $state = 'valid-state';
+        $idToken = $this->idToken(['iss' => self::ISSUER, 'aud' => self::CLIENT_ID]);
+        Http::fake([
+            self::BASE_URL.'/realms/'.self::REALM.'/protocol/openid-connect/token' => Http::response([
+                'access_token' => 'denied-access-token',
+                'id_token' => $idToken,
+            ]),
+            self::BASE_URL.'/realms/'.self::REALM.'/protocol/openid-connect/userinfo' => Http::response([
+                'sub' => 'unassigned-sub',
+                'name' => 'Unassigned User',
+                'email' => 'unassigned@example.test',
+            ]),
+        ]);
+
+        $this->withSession(['keycloak.oauth' => ['state' => $state, 'verifier' => 'valid-verifier']]);
+        $response = $this->get(route('keycloak.callback', ['state' => $state, 'code' => 'exchange-me']));
+
+        $response->assertRedirect(route('keycloak.forbidden'));
+        $this->assertGuest();
+        $user = User::where('keycloak_sub', 'unassigned-sub')->firstOrFail();
+        $this->assertDatabaseHas('activity_log', [
+            'event' => 'keycloak.sign_in_denied',
+            'causer_id' => $user->id,
+        ]);
+        $audit = DB::table('activity_log')->where('event', 'keycloak.sign_in_denied')->first();
+        $this->assertStringNotContainsString('denied-access-token', (string) $audit->properties);
+        $this->assertStringNotContainsString($idToken, (string) $audit->properties);
     }
 
     public function test_callback_rejects_token_with_wrong_issuer(): void

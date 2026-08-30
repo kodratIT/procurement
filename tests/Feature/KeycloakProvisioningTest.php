@@ -8,6 +8,7 @@ use App\Models\UserAssignment;
 use App\Services\Auth\KeycloakUserProvisioner;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use Tests\TestCase;
 
@@ -44,6 +45,10 @@ class KeycloakProvisioningTest extends TestCase
         $this->assertCount(1, User::all());
         $this->assertTrue($updated->assignments()->where('office_id', $office->id)->exists());
         $this->assertTrue($updated->hasActiveAssignment());
+
+        $events = DB::table('activity_log')->pluck('event')->all();
+        $this->assertContains('keycloak.user_provisioned', $events);
+        $this->assertContains('keycloak.user_synchronised', $events);
     }
 
     public function test_subject_cannot_take_an_email_owned_by_another_subject(): void
@@ -67,6 +72,25 @@ class KeycloakProvisioningTest extends TestCase
         $user = User::factory()->create(['keycloak_sub' => 'immutable-sub-1']);
 
         $this->assertFalse($user->canAccessPanel(app('filament')->getPanel('admin')));
+    }
+
+    public function test_provisioning_audit_properties_exclude_tokens_and_untrusted_claims(): void
+    {
+        app(KeycloakUserProvisioner::class)->provision([
+            'sub' => 'immutable-sub-safe',
+            'name' => 'Safe User',
+            'email' => 'safe@example.test',
+            'access_token' => 'super-secret-access-token',
+            'id_token' => 'secret-id-token',
+            'claims' => ['secret' => 'not-recorded'],
+        ]);
+
+        $audit = DB::table('activity_log')->where('event', 'keycloak.user_provisioned')->first();
+        $this->assertNotNull($audit);
+        $this->assertStringNotContainsString('super-secret-access-token', (string) $audit->properties);
+        $this->assertStringNotContainsString('secret-id-token', (string) $audit->properties);
+        $this->assertStringNotContainsString('not-recorded', (string) $audit->properties);
+        $this->assertSame(['user_id' => User::query()->first()->id], json_decode($audit->properties, true));
     }
 
     public function test_existing_session_is_denied_after_assignment_is_deactivated(): void

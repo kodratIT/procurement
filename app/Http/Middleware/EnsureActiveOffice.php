@@ -12,7 +12,7 @@ class EnsureActiveOffice
     public function handle(Request $request, Closure $next): Response
     {
         if ($request->user() && ! app(ActiveOfficeContext::class)->current()) {
-            abort(403);
+            return response()->view('errors.403', status: 403);
         }
 
         return $next($request);
