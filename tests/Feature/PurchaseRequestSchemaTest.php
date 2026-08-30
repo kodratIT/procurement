@@ -115,18 +115,32 @@ class PurchaseRequestSchemaTest extends TestCase
         $this->assertSame('45000.00', $request->total_amount);
     }
 
-    public function test_creating_header_with_client_total_is_overridden_by_server_calc(): void
+    public function test_creating_header_always_starts_with_server_total_even_when_client_supplies_one(): void
     {
         $request = PurchaseRequest::factory()->create(['total_amount' => 999999]);
-        PurchaseRequestItem::factory()->create([
-            'purchase_request_id' => $request->id,
-            'quantity' => 5,
-            'unit_price' => 2000,
+
+        $this->assertSame('0.00', $request->total_amount);
+        $this->assertDatabaseHas('purchase_requests', [
+            'id' => $request->id,
+            'total_amount' => 0,
         ]);
+    }
 
-        $request->recalculateTotal();
+    public function test_monthly_sequence_remains_unique_for_many_creates(): void
+    {
+        $office = Office::factory()->create();
+        $user = User::factory()->create();
 
-        $this->assertSame('10000.00', $request->total_amount);
+        $numbers = collect(range(1, 25))->map(fn (): string => PurchaseRequest::create([
+            'office_id' => $office->id,
+            'requester_id' => $user->id,
+        ])->pr_number);
+
+        $this->assertCount(25, $numbers->unique());
+        $this->assertSame(
+            range(1, 25),
+            $numbers->map(fn (string $number): int => (int) substr($number, -4))->all()
+        );
     }
 
     public function test_items_cascade_on_purchase_request_delete(): void

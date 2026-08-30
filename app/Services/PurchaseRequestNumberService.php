@@ -2,51 +2,63 @@
 
 namespace App\Services;
 
-use App\Models\PurchaseRequest;
 use DateTimeInterface;
+use Illuminate\Database\QueryException;
+use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
 
-/**
- * Generates the PR number server-side, never trusting the client.
- *
- * Format: PR-{YYYYMM}-{NNNN}, zero-padded 4-digit sequence per calendar month.
- * The sequence is computed against the persisted rows so concurrent requests
- * cannot collide on the unique index; the number is assigned inside the model's
- * creating hook right before the insert.
- */
+/** Generates PR-YYYYMM-NNNN numbers using an atomic per-month sequence. */
 class PurchaseRequestNumberService
 {
     public const PREFIX = 'PR';
 
-    /**
-     * Compute the next number for the given month (defaults to now).
-     *
-     * @param  DateTimeInterface|null  $when  month anchor (default now)
-     */
     public function next(?DateTimeInterface $when = null): string
     {
         $when ??= now();
-
         $month = $when->format('Ym');
         $prefix = self::PREFIX.'-'.$month.'-';
 
-        // The per-month sequence is global, not office-scoped: bypass the
-        // OfficeScoped global scope so unauthenticated/other-office contexts
-        // still see existing numbers (avoids collisions).
-        $last = PurchaseRequest::acrossOffices()
-            ->where('pr_number', 'like', $prefix.'%')
-            ->orderByDesc('pr_number')
-            ->value('pr_number');
+        // The single-row sequence update is atomic and the unique month key
+        // makes concurrent first use safe. Retries handle transient database
+        // lock contention (notably SQLite's coarse write lock).
+        for ($attempt = 0; $attempt < 5; $attempt++) {
+            try {
+                $sequence = DB::transaction(function () use ($month): int {
+                    DB::table('purchase_request_number_sequences')->insertOrIgnore([
+                        'month' => $month,
+                        'next_sequence' => 1,
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ]);
 
-        $sequence = 1;
-        if ($last !== null && str_starts_with($last, $prefix)) {
-            $sequence = ((int) substr($last, strlen($prefix))) + 1;
+                    $sequence = (int) DB::table('purchase_request_number_sequences')
+                        ->where('month', $month)
+                        ->value('next_sequence');
+
+                    if ($sequence < 1 || $sequence > 9999) {
+                        throw new InvalidArgumentException("PR number sequence out of range for {$month}.");
+                    }
+
+                    DB::table('purchase_request_number_sequences')
+                        ->where('month', $month)
+                        ->update([
+                            'next_sequence' => $sequence + 1,
+                            'updated_at' => now(),
+                        ]);
+
+                    return $sequence;
+                }, 5);
+
+                return $prefix.sprintf('%04d', $sequence);
+            } catch (QueryException $exception) {
+                if ($attempt === 4) {
+                    throw $exception;
+                }
+
+                usleep(10_000 * ($attempt + 1));
+            }
         }
 
-        if ($sequence < 1 || $sequence > 9999) {
-            throw new InvalidArgumentException("PR number sequence out of range for {$month}.");
-        }
-
-        return $prefix.sprintf('%04d', $sequence);
+        throw new InvalidArgumentException("Unable to allocate PR number for {$month}.");
     }
 }

@@ -60,9 +60,9 @@ class PurchaseRequest extends Model
                 $model->status = self::STATUS_DRAFT;
             }
 
-            if ($model->total_amount === null) {
-                $model->total_amount = 0;
-            }
+            // Header totals are derived exclusively from persisted item lines.
+            // Never retain a client-provided value during initial creation.
+            $model->total_amount = 0;
 
             // Assign the server-side sequential number at first persist.
             // A client-supplied number is never accepted.
@@ -72,6 +72,11 @@ class PurchaseRequest extends Model
                 throw new \LogicException('purchase_requests.office_id is required (office scoping).');
             }
         });
+    }
+
+    public function save(array $options = []): bool
+    {
+        return DB::transaction(fn (): bool => parent::save($options));
     }
 
     protected function casts(): array
