@@ -4,6 +4,7 @@ namespace App\Filament\Resources\Offices;
 
 use App\Filament\Resources\Offices\Pages\ManageOffices;
 use App\Models\Office;
+use App\Services\AccessContextService;
 use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Actions\EditAction;
@@ -16,6 +17,8 @@ use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\Auth;
 
 class OfficeResource extends Resource
 {
@@ -24,6 +27,16 @@ class OfficeResource extends Resource
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedBuildingOffice2;
 
     protected static ?string $navigationLabel = 'Kantor';
+
+    public static function getEloquentQuery(): Builder
+    {
+        $query = parent::getEloquentQuery();
+        $user = Auth::user();
+
+        return $user === null
+            ? $query->whereKey(0)
+            : $query->whereIn('id', app(AccessContextService::class)->allowedOffices($user)->modelKeys());
+    }
 
     protected static ?string $modelLabel = 'kantor';
 

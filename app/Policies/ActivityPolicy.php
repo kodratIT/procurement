@@ -3,28 +3,28 @@
 namespace App\Policies;
 
 use App\Models\User;
+use App\Services\AuthorizationService;
 use App\Support\ProcurementPermissions;
-use Spatie\Activitylog\Models\Activity;
 
 class ActivityPolicy
 {
     public function viewAny(User $user): bool
     {
-        return $user->can(ProcurementPermissions::VIEW);
+        return app(AuthorizationService::class)->allows($user, ProcurementPermissions::VIEW);
     }
 
     public function view(User $user, Activity $activity): bool
     {
-        return $user->can(ProcurementPermissions::VIEW);
+        return app(AuthorizationService::class)->allows($user, ProcurementPermissions::VIEW);
     }
 
     public function exportActivity(User $user): bool
     {
-        return $user->can(ProcurementPermissions::EXPORT);
+        return app(AuthorizationService::class)->allows($user, ProcurementPermissions::EXPORT);
     }
 
     public function manageExportPresets(User $user): bool
     {
-        return $user->can(ProcurementPermissions::MANAGE_ROLES);
+        return app(AuthorizationService::class)->allows($user, ProcurementPermissions::MANAGE_ROLES);
     }
 }

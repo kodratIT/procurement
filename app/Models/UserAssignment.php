@@ -92,6 +92,48 @@ class UserAssignment extends Model
         return $this->hasMany(AssignmentScope::class, 'assignment_id');
     }
 
+    public function scopeForOffice(Builder $query, int $officeId): Builder
+    {
+        return $query->where('office_id', $officeId);
+    }
+
+    public function scopeForBranch(Builder $query, int $branchId): Builder
+    {
+        return $query->where('branch_id', $branchId);
+    }
+
+    public function scopeForDepartment(Builder $query, int $departmentId): Builder
+    {
+        return $query->where('department_id', $departmentId);
+    }
+
+    public function scopeForRole(Builder $query, int $roleId): Builder
+    {
+        return $query->where('role_id', $roleId);
+    }
+
+    public function scopeWithPermission(Builder $query, string $permission): Builder
+    {
+        return $query
+            ->where(function (Builder $query) use ($permission): void {
+                $query->whereHas('assignedRole', fn (Builder $query): Builder => $query
+                    ->where('is_active', true)
+                    ->whereHas('permissions', fn (Builder $query): Builder => $query
+                        ->where('permissions.name', $permission)
+                        ->where('permissions.guard_name', 'web')))
+                    ->orWhereHas('permissionOverrides', fn (Builder $query): Builder => $query
+                        ->where('effect', AssignmentPermissionOverride::ALLOW)
+                        ->whereHas('permission', fn (Builder $query): Builder => $query
+                            ->where('name', $permission)
+                            ->where('guard_name', 'web')));
+            })
+            ->whereDoesntHave('permissionOverrides', fn (Builder $query): Builder => $query
+                ->where('effect', AssignmentPermissionOverride::DENY)
+                ->whereHas('permission', fn (Builder $query): Builder => $query
+                    ->where('name', $permission)
+                    ->where('guard_name', 'web')));
+    }
+
     public function permissionOverrides(): HasMany
     {
         return $this->hasMany(AssignmentPermissionOverride::class, 'assignment_id');
@@ -205,6 +247,7 @@ class UserAssignment extends Model
     private function validateOrganizationContext(): void
     {
         if ($this->branch_id !== null && ! Branch::query()
+            ->withoutGlobalScope('access_context')
             ->whereKey($this->branch_id)
             ->where('office_id', $this->office_id)
             ->exists()) {

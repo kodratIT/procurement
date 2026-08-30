@@ -4,6 +4,7 @@ namespace App\Policies;
 
 use App\Models\CostCenter;
 use App\Models\User;
+use App\Services\AuthorizationService;
 use App\Support\ProcurementPermissions;
 
 class CostCenterPolicy
@@ -15,7 +16,7 @@ class CostCenterPolicy
 
     public function view(User $user, CostCenter $costCenter): bool
     {
-        return $this->canManage($user);
+        return $this->canManageRecord($user, $costCenter);
     }
 
     public function create(User $user): bool
@@ -25,7 +26,7 @@ class CostCenterPolicy
 
     public function update(User $user, CostCenter $costCenter): bool
     {
-        return $this->canManage($user);
+        return $this->canManageRecord($user, $costCenter);
     }
 
     public function delete(User $user, CostCenter $costCenter): bool
@@ -40,11 +41,16 @@ class CostCenterPolicy
 
     public function deactivate(User $user, CostCenter $costCenter): bool
     {
-        return $this->canManage($user) && $costCenter->is_active;
+        return $costCenter->is_active && $this->canManageRecord($user, $costCenter);
     }
 
     private function canManage(User $user): bool
     {
-        return $user->can(ProcurementPermissions::MANAGE_MASTER_DATA);
+        return app(AuthorizationService::class)->allows($user, ProcurementPermissions::MANAGE_MASTER_DATA);
+    }
+
+    private function canManageRecord(User $user, CostCenter $costCenter): bool
+    {
+        return app(AuthorizationService::class)->canManageRecord($user, ProcurementPermissions::MANAGE_MASTER_DATA, $costCenter);
     }
 }

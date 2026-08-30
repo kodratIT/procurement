@@ -2,10 +2,13 @@
 
 namespace App\Models;
 
+use App\Services\MultiOfficeAuthorization;
+use App\Support\ProcurementPermissions;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 
 class Office extends Model
@@ -26,6 +29,14 @@ class Office extends Model
                 $office->disabled_at = null;
             } elseif ($office->disabled_at === null) {
                 $office->disabled_at = now();
+            }
+
+            if (Auth::check()) {
+                app(MultiOfficeAuthorization::class)->authorizeMutation(
+                    Auth::user(),
+                    $office,
+                    ProcurementPermissions::MANAGE_MASTER_DATA,
+                );
             }
         });
     }

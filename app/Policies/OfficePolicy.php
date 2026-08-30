@@ -4,6 +4,7 @@ namespace App\Policies;
 
 use App\Models\Office;
 use App\Models\User;
+use App\Services\AuthorizationService;
 use App\Support\ProcurementPermissions;
 
 class OfficePolicy
@@ -15,7 +16,7 @@ class OfficePolicy
 
     public function view(User $user, Office $office): bool
     {
-        return $this->canManage($user);
+        return app(AuthorizationService::class)->canManageRecord($user, ProcurementPermissions::MANAGE_MASTER_DATA, $office);
     }
 
     public function create(User $user): bool
@@ -25,7 +26,7 @@ class OfficePolicy
 
     public function update(User $user, Office $office): bool
     {
-        return $this->canManage($user);
+        return app(AuthorizationService::class)->canManageRecord($user, ProcurementPermissions::MANAGE_MASTER_DATA, $office);
     }
 
     public function delete(User $user, Office $office): bool
@@ -40,22 +41,19 @@ class OfficePolicy
 
     public function deactivate(User $user, Office $office): bool
     {
-        return $this->canManage($user) && $office->is_active;
+        return $office->is_active
+            && app(AuthorizationService::class)->canManageRecord($user, ProcurementPermissions::MANAGE_MASTER_DATA, $office);
     }
 
     public function select(User $user, Office $office): bool
     {
-        return $user->assignments()
-            ->where('office_id', $office->getKey())
-            ->where('is_active', true)
-            ->whereDate('valid_from', '<=', now())
-            ->where(fn ($query) => $query->whereNull('valid_until')->orWhereDate('valid_until', '>=', now()))
-            ->whereHas('office', fn ($query) => $query->where('is_active', true)->whereNull('disabled_at'))
-            ->exists();
+        return app(AuthorizationService::class)->canManageRecord($user, ProcurementPermissions::VIEW, $office)
+            && $office->is_active
+            && $office->disabled_at === null;
     }
 
     private function canManage(User $user): bool
     {
-        return $user->can(ProcurementPermissions::MANAGE_MASTER_DATA);
+        return app(AuthorizationService::class)->allows($user, ProcurementPermissions::MANAGE_MASTER_DATA);
     }
 }

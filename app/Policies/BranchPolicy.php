@@ -4,6 +4,7 @@ namespace App\Policies;
 
 use App\Models\Branch;
 use App\Models\User;
+use App\Services\AuthorizationService;
 use App\Support\ProcurementPermissions;
 
 class BranchPolicy
@@ -15,7 +16,7 @@ class BranchPolicy
 
     public function view(User $user, Branch $branch): bool
     {
-        return $this->canManage($user);
+        return $this->canManageRecord($user, $branch);
     }
 
     public function create(User $user): bool
@@ -25,7 +26,7 @@ class BranchPolicy
 
     public function update(User $user, Branch $branch): bool
     {
-        return $this->canManage($user);
+        return $this->canManageRecord($user, $branch);
     }
 
     public function delete(User $user, Branch $branch): bool
@@ -40,11 +41,16 @@ class BranchPolicy
 
     public function deactivate(User $user, Branch $branch): bool
     {
-        return $this->canManage($user) && $branch->is_active;
+        return $branch->is_active && $this->canManageRecord($user, $branch);
     }
 
     private function canManage(User $user): bool
     {
-        return $user->can(ProcurementPermissions::MANAGE_MASTER_DATA);
+        return app(AuthorizationService::class)->allows($user, ProcurementPermissions::MANAGE_MASTER_DATA);
+    }
+
+    private function canManageRecord(User $user, Branch $branch): bool
+    {
+        return app(AuthorizationService::class)->canManageRecord($user, ProcurementPermissions::MANAGE_MASTER_DATA, $branch);
     }
 }
