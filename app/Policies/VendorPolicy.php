@@ -28,6 +28,11 @@ final class VendorPolicy
         return $this->authorization->canManageRecord($user, ProcurementPermissions::MANAGE_MASTER_DATA, $vendor);
     }
 
+    public function export(User $user): bool
+    {
+        return $this->authorization->allows($user, ProcurementPermissions::EXPORT);
+    }
+
     public function create(User $user): bool
     {
         return $this->canManage($user);

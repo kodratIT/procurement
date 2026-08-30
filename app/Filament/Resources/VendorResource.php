@@ -3,7 +3,10 @@
 namespace App\Filament\Resources;
 
 use App\Filament\Exports\VendorExporter;
+use App\Models\User;
 use App\Models\Vendor;
+use App\Services\MultiOfficeAuthorization;
+use App\Support\ProcurementPermissions;
 use Filament\Actions\Action;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
@@ -21,6 +24,7 @@ use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\Auth;
 
 class VendorResource extends Resource
 {
@@ -33,6 +37,20 @@ class VendorResource extends Resource
     protected static ?string $modelLabel = 'vendor';
 
     protected static ?string $pluralModelLabel = 'vendor';
+
+    public static function getEloquentQuery(): Builder
+    {
+        $query = parent::getEloquentQuery();
+        $user = Auth::user();
+
+        return $user instanceof User
+            ? app(MultiOfficeAuthorization::class)->scopeForUser(
+                $query,
+                $user,
+                ProcurementPermissions::VIEW,
+            )
+            : $query->whereKey(0);
+    }
 
     public static function form(Schema $schema): Schema
     {
@@ -134,7 +152,9 @@ class VendorResource extends Resource
                     ->action(fn (Vendor $record): bool => $record->activate()),
             ])
             ->toolbarActions([
-                ExportBulkAction::make()->exporter(VendorExporter::class),
+                ExportBulkAction::make()
+                    ->exporter(VendorExporter::class)
+                    ->authorize('export', Vendor::class),
                 DeleteBulkAction::make(),
             ]);
     }

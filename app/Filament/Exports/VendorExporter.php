@@ -6,6 +6,7 @@ use App\Models\Vendor;
 use Filament\Actions\Exports\ExportColumn;
 use Filament\Actions\Exports\Exporter;
 use Filament\Actions\Exports\Models\Export;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Str;
 
 class VendorExporter extends Exporter
@@ -14,13 +15,15 @@ class VendorExporter extends Exporter
 
     public static function getColumns(): array
     {
+        $canViewSensitiveData = Gate::allows('viewSensitiveData', Vendor::make());
+
         return [
             ExportColumn::make('code'),
             ExportColumn::make('name'),
-            ExportColumn::make('contact_name'),
-            ExportColumn::make('phone'),
-            ExportColumn::make('email'),
-            ExportColumn::make('address'),
+            ExportColumn::make('contact_name')->visible($canViewSensitiveData),
+            ExportColumn::make('phone')->visible($canViewSensitiveData),
+            ExportColumn::make('email')->visible($canViewSensitiveData),
+            ExportColumn::make('address')->visible($canViewSensitiveData),
             ExportColumn::make('is_active'),
             ExportColumn::make('created_at'),
         ];
