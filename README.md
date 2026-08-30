@@ -23,7 +23,7 @@ and CSV export — all free/open-source plugins.
 Prerequisites: PHP 8.3+, Composer 2, Node 20+.
 
 ```sh
-cp .env.example .env        # then fill in APP_KEY, DB_*, REDIS_*, KEYCLOAK_*
+cp .env.example .env        # then fill in APP_KEY, DB_PASSWORD, KEYCLOAK_*
 composer install
 npm install && npm run build
 php artisan key:generate
@@ -31,6 +31,11 @@ php artisan migrate --seed
 php artisan app:validate-environment   # fails fast if required env is missing
 php artisan serve                      # Filament panel at http://localhost:8000/admin
 ```
+
+The default local configuration uses PostgreSQL, Redis for cache/queue/session, and the
+private local filesystem at `storage/app/private`. The application timezone is `Asia/Jakarta`.
+Mail defaults to the `log` mailer; replace the `MAIL_*` placeholders only when an SMTP service
+is available. Never commit `.env` or real credentials.
 
 ### Laravel and Filament foundation installation
 
@@ -53,8 +58,9 @@ php artisan about
 php artisan test --filter=FoundationTest
 ```
 
-With Docker: `cp .env.example .env`, set `DB_PASSWORD`, then `docker compose up --build`
-(postgres + redis, app on port 8000).
+With Docker, set `DB_PASSWORD` in `.env` and run `docker compose up --build` (PostgreSQL 16,
+Redis 7, and the app on port 8000). The database and Redis data are retained in named volumes.
+Use `docker compose down -v` only when intentionally deleting local data.
 
 ## Environment variables
 
