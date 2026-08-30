@@ -2,6 +2,8 @@
 
 namespace App\Providers\Filament;
 
+use App\Http\Controllers\Auth\KeycloakController;
+use App\Http\Middleware\RequireApplicationAssignment;
 use BezhanSalleh\FilamentShield\FilamentShieldPlugin;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
@@ -25,10 +27,9 @@ class AdminPanelProvider extends PanelProvider
     public function panel(Panel $panel): Panel
     {
         return $panel
-            ->default()
             ->id('admin')
             ->path('admin')
-            ->login()
+            ->login([KeycloakController::class, 'redirect'])
             ->colors([
                 'primary' => Color::Amber,
             ])
@@ -52,12 +53,16 @@ class AdminPanelProvider extends PanelProvider
                 EncryptCookies::class,
                 AddQueuedCookiesToResponse::class,
                 StartSession::class,
+                RequireApplicationAssignment::class,
                 AuthenticateSession::class,
                 ShareErrorsFromSession::class,
                 PreventRequestForgery::class,
                 SubstituteBindings::class,
                 DisableBladeIconComponents::class,
                 DispatchServingFilamentEvent::class,
+            ])
+            ->persistentMiddleware([
+                RequireApplicationAssignment::class,
             ])
             ->authMiddleware([
                 Authenticate::class,
