@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 class PurchaseRequest extends Model
 {
@@ -46,6 +47,7 @@ class PurchaseRequest extends Model
         'cost_center_id',
         'departure_batch_id',
         'requester_id',
+        'category_id',
         'title',
         'notes',
         'required_date',
@@ -56,6 +58,12 @@ class PurchaseRequest extends Model
     protected static function booted(): void
     {
         static::creating(function (self $model): void {
+            if ($model->category_id !== null && ! self::categoryIsAvailableForNewRequest($model->category_id)) {
+                throw ValidationException::withMessages([
+                    'category_id' => 'The selected procurement category is inactive and cannot be used for a new purchase request.',
+                ]);
+            }
+
             if ($model->status === null) {
                 $model->status = self::STATUS_DRAFT;
             }
@@ -88,6 +96,7 @@ class PurchaseRequest extends Model
             'cost_center_id' => 'integer',
             'departure_batch_id' => 'integer',
             'requester_id' => 'integer',
+            'category_id' => 'integer',
             'required_date' => 'date',
             'total_amount' => 'decimal:2',
             'status' => 'string',
@@ -124,6 +133,11 @@ class PurchaseRequest extends Model
         return $this->belongsTo(User::class, 'requester_id');
     }
 
+    public function category(): BelongsTo
+    {
+        return $this->belongsTo(ProcurementCategory::class, 'category_id');
+    }
+
     public function items(): HasMany
     {
         return $this->hasMany(PurchaseRequestItem::class)->orderBy('sort_order');
@@ -152,5 +166,13 @@ class PurchaseRequest extends Model
             $this->recalculateTotal();
             $this->save();
         });
+    }
+
+    private static function categoryIsAvailableForNewRequest(int $categoryId): bool
+    {
+        return ProcurementCategory::query()
+            ->availableForNewPurchaseRequests()
+            ->whereKey($categoryId)
+            ->exists();
     }
 }

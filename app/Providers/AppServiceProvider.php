@@ -21,6 +21,7 @@ use App\Policies\ContextPolicy;
 use App\Policies\CostCenterPolicy;
 use App\Policies\DepartmentPolicy;
 use App\Policies\OfficePolicy;
+use App\Policies\ProcurementCategoryPolicy;
 use App\Policies\RolePolicy;
 use App\Policies\UserAssignmentPolicy;
 use App\Services\AccessContextService;
@@ -49,6 +50,7 @@ class AppServiceProvider extends ServiceProvider
         Gate::policy(Branch::class, BranchPolicy::class);
         Gate::policy(CostCenter::class, CostCenterPolicy::class);
         Gate::policy(Department::class, DepartmentPolicy::class);
+        Gate::policy(ProcurementCategory::class, ProcurementCategoryPolicy::class);
         Gate::policy(Office::class, OfficePolicy::class);
         Gate::policy(Role::class, RolePolicy::class);
         Gate::policy(SpatieRole::class, RolePolicy::class);
@@ -56,7 +58,6 @@ class AppServiceProvider extends ServiceProvider
 
         foreach ([
             Vendor::class,
-            ProcurementCategory::class,
             ProcurementItem::class,
             ProcurementUnit::class,
             ProcurementVariant::class,
