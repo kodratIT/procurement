@@ -84,8 +84,9 @@ class KeycloakOidcCallbackTest extends TestCase
         $existing = User::factory()->create(['keycloak_sub' => 'immutable-sub-1', 'email' => 'budi@example.test']);
         $existing->offices()->attach($office);
 
-        $idToken = $this->idToken(['iss' => self::ISSUER, 'aud' => self::CLIENT_ID]);
         $state = 'valid-state';
+        $nonce = 'valid-nonce';
+        $idToken = $this->idToken(['iss' => self::ISSUER, 'aud' => self::CLIENT_ID, 'nonce' => $nonce]);
         Http::fake([
             self::BASE_URL.'/realms/'.self::REALM.'/protocol/openid-connect/token' => Http::response([
                 'access_token' => 'access-token',
@@ -98,7 +99,7 @@ class KeycloakOidcCallbackTest extends TestCase
             ]),
         ]);
 
-        $this->withSession(['keycloak.oauth' => ['state' => $state, 'verifier' => 'valid-verifier']]);
+        $this->withSession(['keycloak.oauth' => ['state' => $state, 'nonce' => $nonce, 'verifier' => 'valid-verifier']]);
         $response = $this->get(route('keycloak.callback', ['state' => $state, 'code' => 'exchange-me']));
 
         $response->assertRedirect('/admin');
