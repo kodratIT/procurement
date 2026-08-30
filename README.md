@@ -8,23 +8,27 @@ and CSV export — all free/open-source plugins.
 
 | Layer      | Choice                                        |
 |------------|-----------------------------------------------|
-| Framework  | Laravel 13 (PHP 8.3+; CI pins PHP 8.4)      |
-| Admin      | Filament 5 Panel Builder (locked v5.7.6)     |
-| SSO        | Keycloak, OIDC Authorization Code + PKCE S256 |
+| Framework  | Laravel 13.29.0 (locked in `composer.lock`)  |
+| Admin      | Filament 5.7.6 (locked in `composer.lock`)   |
+| SSO        | Keycloak, OIDC Authorization Code + PKCE     |
 | RBAC       | spatie/laravel-permission + Filament Shield   |
 | Audit log  | spatie/laravel-activitylog + filament-logger |
 | Export     | Filament 5 native CSV export (7 exporters)    |
-| Database   | PostgreSQL 16 (prod/CI), SQLite (local tests) |
-| Cache/Queue| Redis 7 (prod), database (local default)     |
-| Frontend   | Node.js 20.19+ / npm 10.8+ (CI uses Node 22) |
+| Database   | PostgreSQL 16 (production/CI)                 |
+| Cache/Queue| Redis 7 (production), database (local default) |
+| PHP        | 8.4 (CI/container baseline; `composer.json` requires ^8.3) |
+| Frontend   | Node.js 20.19+ / npm 10.8.2+ (CI uses Node 22) |
 | CI         | GitHub Actions                                |
+
+`composer.lock` and `package-lock.json` are required inputs to every
+installation. CI uses `composer install` and `npm ci`, so dependency
+installation cannot rewrite either lockfile.
 
 ## Local setup
 
-Prerequisites: PHP 8.3+, Composer 2, Node.js 20.19+, npm 10.8+.
+Prerequisites: PHP 8.4, Composer 2, Node.js 20.19+, npm 10.8.2+.
 PostgreSQL 16 and Redis 7 are the deployment baseline; the default local
 environment uses SQLite and database-backed cache/queue.
-
 ```sh
 cp .env.example .env
 composer install --no-interaction --prefer-dist
