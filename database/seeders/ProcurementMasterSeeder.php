@@ -10,6 +10,7 @@ use App\Models\ProcurementItem;
 use App\Models\ProcurementUnit;
 use App\Models\ProcurementVariant;
 use App\Models\Vendor;
+use App\Models\VendorItem;
 use Illuminate\Database\Seeder;
 
 class ProcurementMasterSeeder extends Seeder
@@ -178,8 +179,61 @@ class ProcurementMasterSeeder extends Seeder
                 );
             }
         }
-        Vendor::updateOrCreate(['code' => 'VND-UMROH-001'], ['name' => 'Al Madinah Supplies', 'contact_name' => 'Tim Sales', 'phone' => '021-555-0101', 'email' => 'sales@almadinah.example', 'is_active' => true]);
-        Vendor::updateOrCreate(['code' => 'VND-UMROH-002'], ['name' => 'Nusantara Travel Gear', 'contact_name' => 'Customer Service', 'phone' => '021-555-0102', 'email' => 'order@nusantaragear.example', 'is_active' => true]);
+        $vendors = [
+            'VND-UMROH-001' => Vendor::updateOrCreate(
+                ['code' => 'VND-UMROH-001'],
+                [
+                    'name' => 'Al Madinah Supplies',
+                    'vendor_type' => Vendor::TYPE_GOODS,
+                    'contact_name' => 'Tim Sales',
+                    'phone' => '021-555-0101',
+                    'email' => 'sales@almadinah.example',
+                    'tax_number' => '01.234.567.8-901.000',
+                    'is_active' => true,
+                ],
+            ),
+            'VND-UMROH-002' => Vendor::updateOrCreate(
+                ['code' => 'VND-UMROH-002'],
+                [
+                    'name' => 'Nusantara Travel Gear',
+                    'vendor_type' => Vendor::TYPE_GOODS,
+                    'contact_name' => 'Customer Service',
+                    'phone' => '021-555-0102',
+                    'email' => 'order@nusantaragear.example',
+                    'tax_number' => '02.345.678.9-012.000',
+                    'is_active' => true,
+                ],
+            ),
+        ];
+
+        $vendorItems = [
+            'VND-UMROH-001' => [
+                ['SERAGAM', 315000],
+                ['KOPER', 410000],
+                ['MUKENA', 200000],
+            ],
+            'VND-UMROH-002' => [
+                ['KOPER', 405000],
+                ['KAIN-IHRAM', 165000],
+                ['TAS-PASPOR', 40000],
+            ],
+        ];
+
+        foreach ($vendorItems as $vendorCode => $itemsForVendor) {
+            foreach ($itemsForVendor as [$itemCode, $referencePrice]) {
+                VendorItem::updateOrCreate(
+                    [
+                        'vendor_id' => $vendors[$vendorCode]->id,
+                        'item_id' => ProcurementItem::query()->where('code', $itemCode)->value('id'),
+                    ],
+                    [
+                        'reference_price' => $referencePrice,
+                        'currency' => 'IDR',
+                        'is_active' => true,
+                    ],
+                );
+            }
+        }
         DepartureBatch::updateOrCreate(['code' => 'UMR-2026-01'], ['name' => 'Umroh Januari 2026', 'departure_date' => '2026-01-15', 'return_date' => '2026-01-27', 'capacity' => 45, 'status' => 'closed', 'is_active' => true]);
         DepartureBatch::updateOrCreate(['code' => 'UMR-2026-02'], ['name' => 'Umroh Februari 2026', 'departure_date' => '2026-02-12', 'return_date' => '2026-02-24', 'capacity' => 50, 'status' => 'open', 'is_active' => true]);
     }

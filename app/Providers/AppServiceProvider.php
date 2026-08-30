@@ -13,6 +13,7 @@ use App\Models\ProcurementVariant;
 use App\Models\Role;
 use App\Models\UserAssignment;
 use App\Models\Vendor;
+use App\Models\VendorItem;
 use App\Policies\ActivityPolicy;
 use App\Policies\ContextPolicy;
 use App\Policies\OfficePolicy;
@@ -23,6 +24,8 @@ use App\Policies\ProcurementUnitPolicy;
 use App\Policies\ProcurementVariantPolicy;
 use App\Policies\RolePolicy;
 use App\Policies\UserAssignmentPolicy;
+use App\Policies\VendorItemPolicy;
+use App\Policies\VendorPolicy;
 use App\Services\AccessContextService;
 use App\Services\MultiOfficeAuthorization;
 use Illuminate\Support\Facades\Gate;
@@ -55,8 +58,10 @@ class AppServiceProvider extends ServiceProvider
         Gate::policy(Role::class, RolePolicy::class);
         Gate::policy(SpatieRole::class, RolePolicy::class);
         Gate::policy(UserAssignment::class, UserAssignmentPolicy::class);
+        Gate::policy(Vendor::class, VendorPolicy::class);
+        Gate::policy(VendorItem::class, VendorItemPolicy::class);
 
-        foreach ([Vendor::class, DepartureBatch::class] as $model) {
+        foreach ([DepartureBatch::class] as $model) {
             Gate::policy($model, ContextPolicy::class);
         }
 

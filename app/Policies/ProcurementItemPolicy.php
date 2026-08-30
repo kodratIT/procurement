@@ -37,7 +37,8 @@ final class ProcurementItemPolicy
     {
         return $this->view($user, $item)
             && ! $item->variants()->exists()
-            && ! $item->purchaseRequestItems()->exists();
+            && ! $item->purchaseRequestItems()->exists()
+            && ! $item->vendorItems()->exists();
     }
 
     public function deleteAny(User $user): bool

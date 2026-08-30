@@ -76,6 +76,12 @@ class ProcurementItem extends Model
         return $this->hasMany(PurchaseRequestItem::class, 'procurement_item_id');
     }
 
+    /** @return HasMany<VendorItem> */
+    public function vendorItems(): HasMany
+    {
+        return $this->hasMany(VendorItem::class, 'item_id');
+    }
+
     /** @return array<string, string> */
     public function specificationList(): array
     {
