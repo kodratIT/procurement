@@ -21,6 +21,7 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('procurement_categories', function (Blueprint $table): void {
+            $table->dropIndex(['type']);
             $table->dropColumn(['type', 'requires_batch', 'requires_vendor', 'receiving', 'invoice', 'jamaah']);
         });
     }
