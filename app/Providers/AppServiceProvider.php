@@ -6,6 +6,8 @@ use App\Models\Activity;
 use App\Policies\ActivityPolicy;
 use App\Policies\RolePolicy;
 use App\Services\ActiveOfficeContext;
+use App\Services\Auth\HttpKeycloakOidcProvider;
+use App\Services\Auth\KeycloakOidcProvider;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
 use Spatie\Permission\Models\Role;
@@ -18,6 +20,7 @@ class AppServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->scoped(ActiveOfficeContext::class);
+        $this->app->bind(KeycloakOidcProvider::class, HttpKeycloakOidcProvider::class);
     }
 
     /**

@@ -8,6 +8,7 @@ return [
     'client_id' => env('KEYCLOAK_CLIENT_ID', ''),
     'client_secret' => env('KEYCLOAK_CLIENT_SECRET'),
     'redirect_uri' => env('KEYCLOAK_REDIRECT_URI', env('APP_URL').'/auth/keycloak/callback'),
+    'post_logout_redirect_uri' => env('KEYCLOAK_POST_LOGOUT_REDIRECT_URI', env('APP_URL').'/'),
     'scopes' => ['openid', 'profile', 'email'],
     'pkce' => true,
 ];

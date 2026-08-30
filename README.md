@@ -102,6 +102,7 @@ Optional:
 | `KEYCLOAK_ISSUER`     | ID-token `iss` override (default: `<BASE_URL>/realms/<REALM>`) |
 | `KEYCLOAK_AUDIENCE`   | ID-token `aud` override (default: `KEYCLOAK_CLIENT_ID`)        |
 | `KEYCLOAK_CLIENT_SECRET` | Confidential-client secret (omit for public client)        |
+| `KEYCLOAK_POST_LOGOUT_REDIRECT_URI` | Allow-listed callback after Keycloak logout (register it in Keycloak) |
 | `LOG_CHANNEL` / `LOG_STACK` / `LOG_LEVEL` | Logging channel / stack / level        |
 
 The validator never prints secret values; it only names missing variables.
@@ -111,12 +112,12 @@ The validator never prints secret values; it only names missing variables.
 Configure a Keycloak client with **Standard Flow**, **PKCE (S256)**, and the redirect URI from
 `KEYCLOAK_REDIRECT_URI`.
 
-- `GET /auth/keycloak/redirect` — starts the flow: session-bound `state` (64 chars) and PKCE S256
-  `code_challenge`; the `code_verifier` never leaves the session.
+- `GET /auth/keycloak/redirect` — starts the flow: session-bound `state` and `nonce` (64 chars) and
+  PKCE S256 `code_challenge`; the `code_verifier` never leaves the session.
 - `GET /auth/keycloak/callback` — exchanges `code` + `code_verifier` at the token endpoint, validates
-  the ID token's `iss` against `KEYCLOAK_ISSUER` (default `<BASE_URL>/realms/<REALM>`) and `aud`
-  against `KEYCLOAK_AUDIENCE` (default `KEYCLOAK_CLIENT_ID`), fetches `userinfo`, and provisions the
-  local user.
+  the ID token's nonce, `iss` against `KEYCLOAK_ISSUER` (default `<BASE_URL>/realms/<REALM>`), `aud`
+  against `KEYCLOAK_AUDIENCE` (default `KEYCLOAK_CLIENT_ID`), requires an RS256 JWT header and non-empty
+  signature, and checks time claims before fetching `userinfo` and provisioning the local user.
 - Failed state checks, denied/absent authorization codes, and upstream errors surface as safe
   validation errors — no token material, client secrets, or raw upstream bodies are ever logged.
 - `POST /logout` clears the local session and redirects to the Keycloak end-session endpoint.

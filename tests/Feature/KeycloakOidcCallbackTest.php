@@ -51,12 +51,14 @@ class KeycloakOidcCallbackTest extends TestCase
         $this->assertSame('code', $query['response_type']);
         $this->assertSame(self::CLIENT_ID, $query['client_id']);
         $this->assertSame(self::REDIRECT_URI, $query['redirect_uri']);
+        $this->assertSame(64, strlen((string) $query['nonce']));
         $this->assertSame('S256', $query['code_challenge_method']);
         $this->assertSame(64, strlen((string) $query['state']));
         $this->assertSame(43, strlen((string) $query['code_challenge']));
 
         $oauth = $this->app['session']->get('keycloak.oauth');
         $this->assertSame($query['state'], $oauth['state']);
+        $this->assertSame($query['nonce'], $oauth['nonce']);
         $this->assertTrue(hash_equals($query['code_challenge'], rtrim(strtr(base64_encode(hash('sha256', $oauth['verifier'], true)), '+/', '-_'), '=')));
     }
 
@@ -73,7 +75,7 @@ class KeycloakOidcCallbackTest extends TestCase
         Http::fake();
 
         $state = 'valid-state';
-        $this->withSession(['keycloak.oauth' => ['state' => $state, 'verifier' => 'valid-verifier']]);
+        $this->withSession(['keycloak.oauth' => ['state' => $state, 'nonce' => 'valid-nonce', 'verifier' => 'valid-verifier']]);
         $response = $this->get(route('keycloak.callback', ['state' => $state]));
 
         $response->assertSessionHasErrors('oauth');
@@ -91,7 +93,7 @@ class KeycloakOidcCallbackTest extends TestCase
             'is_active' => true,
         ]);
 
-        $idToken = $this->idToken(['iss' => self::ISSUER, 'aud' => self::CLIENT_ID]);
+        $idToken = $this->idToken(['iss' => self::ISSUER, 'aud' => self::CLIENT_ID, 'nonce' => 'valid-nonce', 'exp' => now()->timestamp + 60, 'iat' => now()->timestamp]);
         $state = 'valid-state';
         Http::fake([
             self::BASE_URL.'/realms/'.self::REALM.'/protocol/openid-connect/token' => Http::response([
@@ -105,7 +107,7 @@ class KeycloakOidcCallbackTest extends TestCase
             ]),
         ]);
 
-        $this->withSession(['keycloak.oauth' => ['state' => $state, 'verifier' => 'valid-verifier']]);
+        $this->withSession(['keycloak.oauth' => ['state' => $state, 'nonce' => 'valid-nonce', 'verifier' => 'valid-verifier']]);
         $response = $this->get(route('keycloak.callback', ['state' => $state, 'code' => 'exchange-me']));
 
         $response->assertRedirect('/admin');
@@ -137,11 +139,11 @@ class KeycloakOidcCallbackTest extends TestCase
         Http::fake([
             self::BASE_URL.'/realms/'.self::REALM.'/protocol/openid-connect/token' => Http::response([
                 'access_token' => 'access-token',
-                'id_token' => $this->idToken(['iss' => 'https://evil.example.test/realms/umrah', 'aud' => self::CLIENT_ID]),
+                'id_token' => $this->idToken(['iss' => 'https://evil.example.test/realms/umrah', 'aud' => self::CLIENT_ID, 'nonce' => 'valid-nonce', 'exp' => now()->timestamp + 60, 'iat' => now()->timestamp]),
             ]),
         ]);
 
-        $this->withSession(['keycloak.oauth' => ['state' => $state, 'verifier' => 'valid-verifier']]);
+        $this->withSession(['keycloak.oauth' => ['state' => $state, 'nonce' => 'valid-nonce', 'verifier' => 'valid-verifier']]);
         $response = $this->get(route('keycloak.callback', ['state' => $state, 'code' => 'exchange-me']));
 
         $response->assertSessionHasErrors('oauth');
@@ -155,15 +157,38 @@ class KeycloakOidcCallbackTest extends TestCase
         Http::fake([
             self::BASE_URL.'/realms/'.self::REALM.'/protocol/openid-connect/token' => Http::response([
                 'access_token' => 'access-token',
-                'id_token' => $this->idToken(['iss' => self::ISSUER, 'aud' => 'another-client']),
+                'id_token' => $this->idToken(['iss' => self::ISSUER, 'aud' => 'another-client', 'nonce' => 'valid-nonce', 'exp' => now()->timestamp + 60, 'iat' => now()->timestamp]),
             ]),
         ]);
 
-        $this->withSession(['keycloak.oauth' => ['state' => $state, 'verifier' => 'valid-verifier']]);
+        $this->withSession(['keycloak.oauth' => ['state' => $state, 'nonce' => 'valid-nonce', 'verifier' => 'valid-verifier']]);
         $response = $this->get(route('keycloak.callback', ['state' => $state, 'code' => 'exchange-me']));
 
         $response->assertSessionHasErrors('oauth');
         $this->assertGuest();
+    }
+
+    public function test_callback_rejects_expired_or_replayed_id_token(): void
+    {
+        $state = 'valid-state';
+        Http::fake([
+            self::BASE_URL.'/realms/'.self::REALM.'/protocol/openid-connect/token' => Http::response([
+                'access_token' => 'access-token',
+                'id_token' => $this->idToken([
+                    'iss' => self::ISSUER,
+                    'aud' => self::CLIENT_ID,
+                    'nonce' => 'different-nonce',
+                    'exp' => now()->timestamp - 1,
+                ]),
+            ]),
+        ]);
+
+        $this->withSession(['keycloak.oauth' => ['state' => $state, 'nonce' => 'valid-nonce', 'verifier' => 'valid-verifier']]);
+        $response = $this->get(route('keycloak.callback', ['state' => $state, 'code' => 'exchange-me']));
+
+        $response->assertSessionHasErrors('oauth');
+        $this->assertGuest();
+        Http::assertNotSent(fn ($request) => str_ends_with((string) $request->url(), '/userinfo'));
     }
 
     public function test_callback_error_response_is_reported_safely_without_token_in_logs(): void
@@ -172,11 +197,11 @@ class KeycloakOidcCallbackTest extends TestCase
         Http::fake([
             self::BASE_URL.'/realms/'.self::REALM.'/protocol/openid-connect/token' => Http::response([
                 'access_token' => 'super-secret-access-token',
-                'id_token' => $this->idToken(['iss' => self::ISSUER, 'aud' => self::CLIENT_ID]),
+                'id_token' => $this->idToken(['iss' => self::ISSUER, 'aud' => self::CLIENT_ID, 'nonce' => 'valid-nonce', 'exp' => now()->timestamp + 60, 'iat' => now()->timestamp]),
             ], 500),
         ]);
 
-        $this->withSession(['keycloak.oauth' => ['state' => $state, 'verifier' => 'valid-verifier']]);
+        $this->withSession(['keycloak.oauth' => ['state' => $state, 'nonce' => 'valid-nonce', 'verifier' => 'valid-verifier']]);
         $response = $this->get(route('keycloak.callback', ['state' => $state, 'code' => 'exchange-me']));
 
         $response->assertSessionHasErrors('oauth');
