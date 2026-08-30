@@ -31,15 +31,12 @@ class User extends Authenticatable implements FilamentUser
 
     public function hasActiveAssignment(): bool
     {
-        if (! $this->is_active) {
-            return false;
-        }
+        return $this->is_active && $this->assignments()->currentlyActive()->exists();
+    }
 
-        return $this->assignments()->where('is_active', true)
-            ->whereDate('valid_from', '<=', now())
-            ->where(fn ($query) => $query->whereNull('valid_until')->orWhereDate('valid_until', '>=', now()))
-            ->whereHas('office', fn ($query) => $query->where('is_active', true)->whereNull('disabled_at'))
-            ->exists();
+    public function hasPermissionInAssignment(UserAssignment $assignment, string $permission): bool
+    {
+        return $assignment->user_id === $this->getKey() && $assignment->allows($permission);
     }
 
     public function offices(): BelongsToMany
