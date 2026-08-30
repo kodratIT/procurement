@@ -17,7 +17,7 @@ class UserAssignmentExporter extends Exporter
         return [
             ExportColumn::make('user.name')->label('User'),
             ExportColumn::make('office.name')->label('Kantor'),
-            ExportColumn::make('role'),
+            ExportColumn::make('assignedRole.name')->label('Role'),
             ExportColumn::make('branch.name')->label('Cabang'),
             ExportColumn::make('department.name')->label('Departemen'),
             ExportColumn::make('costCenter.name')->label('Cost center'),

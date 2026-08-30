@@ -72,7 +72,6 @@ return new class extends Migration
             $table->index(['user_id', 'is_active', 'valid_from']);
             $table->index(['office_id', 'is_active']);
             $table->index(['branch_id', 'department_id', 'cost_center_id']);
-            $table->rawIndex('(valid_until IS NULL OR valid_until >= valid_from)', 'user_assignments_period_check');
         });
     }
 

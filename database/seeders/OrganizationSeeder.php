@@ -6,6 +6,7 @@ use App\Models\Branch;
 use App\Models\CostCenter;
 use App\Models\Department;
 use App\Models\Office;
+use App\Models\Role;
 use App\Models\User;
 use App\Models\UserAssignment;
 use Illuminate\Database\Seeder;
@@ -94,6 +95,7 @@ class OrganizationSeeder extends Seeder
                 'user_id' => $users[$userKey]->id,
                 'office_id' => $offices[$officeCode]->id,
             ];
+            $roleModel = Role::query()->firstOrCreate(['name' => $role, 'guard_name' => 'web']);
             $assignment = UserAssignment::query()
                 ->where($identity)
                 ->whereDate('valid_from', '2026-01-01')
@@ -103,7 +105,8 @@ class OrganizationSeeder extends Seeder
                 'branch_id' => $branchCode === null ? null : $branches[$branchCode]->id,
                 'department_id' => $departments[$departmentCode]->id,
                 'cost_center_id' => $costCenters[$costCenterCode]->id,
-                'role' => $role,
+                'role_id' => $roleModel->id,
+                'role' => $roleModel->name,
                 'valid_from' => '2026-01-01',
                 'valid_until' => null,
                 'is_primary' => $isPrimary,
