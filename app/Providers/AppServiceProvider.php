@@ -3,9 +3,16 @@
 namespace App\Providers;
 
 use App\Models\Activity;
+use App\Models\Branch;
+use App\Models\CostCenter;
+use App\Models\Department;
+use App\Models\Office;
 use App\Policies\ActivityPolicy;
+use App\Policies\BranchPolicy;
+use App\Policies\CostCenterPolicy;
+use App\Policies\DepartmentPolicy;
+use App\Policies\OfficePolicy;
 use App\Policies\RolePolicy;
-use App\Services\ActiveOfficeContext;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
 use Spatie\Permission\Models\Role;
@@ -26,6 +33,10 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         Gate::policy(Activity::class, ActivityPolicy::class);
+        Gate::policy(Branch::class, BranchPolicy::class);
+        Gate::policy(CostCenter::class, CostCenterPolicy::class);
+        Gate::policy(Department::class, DepartmentPolicy::class);
+        Gate::policy(Office::class, OfficePolicy::class);
         Gate::policy(Role::class, RolePolicy::class);
     }
 }

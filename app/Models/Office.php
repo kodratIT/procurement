@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Facades\DB;
 
 class Office extends Model
 {
@@ -18,6 +19,17 @@ class Office extends Model
         return ['is_active' => 'boolean', 'disabled_at' => 'datetime'];
     }
 
+    protected static function booted(): void
+    {
+        static::saving(function (self $office): void {
+            if ($office->is_active) {
+                $office->disabled_at = null;
+            } elseif ($office->disabled_at === null) {
+                $office->disabled_at = now();
+            }
+        });
+    }
+
     public function users(): BelongsToMany
     {
         return $this->belongsToMany(User::class)->withTimestamps();
@@ -26,5 +38,44 @@ class Office extends Model
     public function assignments(): HasMany
     {
         return $this->hasMany(UserAssignment::class);
+    }
+
+    public function branches(): HasMany
+    {
+        return $this->hasMany(Branch::class);
+    }
+
+    public function departments(): HasMany
+    {
+        return $this->hasMany(Department::class);
+    }
+
+    public function costCenters(): HasMany
+    {
+        return $this->hasMany(CostCenter::class);
+    }
+
+    public function purchaseRequests(): HasMany
+    {
+        return $this->hasMany(PurchaseRequest::class);
+    }
+
+    public function deactivate(): bool
+    {
+        return $this->forceFill([
+            'is_active' => false,
+            'disabled_at' => now(),
+        ])->save();
+    }
+
+    private function hasReferences(): bool
+    {
+        foreach (['branches', 'departments', 'cost_centers', 'user_assignments', 'purchase_requests'] as $table) {
+            if (DB::table($table)->where('office_id', $this->getKey())->exists()) {
+                return true;
+            }
+        }
+
+        return DB::table('office_user')->where('office_id', $this->getKey())->exists();
     }
 }
