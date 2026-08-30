@@ -43,7 +43,7 @@ jobs:
       - run: cp .env.example .env && php artisan key:generate
       - run: composer validate --strict
       - run: php artisan route:list && php artisan about
-      - run: php artisan config:cache
+      - run: php artisan config:cache && php artisan app:validate-environment
         env:
           KEYCLOAK_BASE_URL: https://keycloak.example.test
           KEYCLOAK_REALM: umrah

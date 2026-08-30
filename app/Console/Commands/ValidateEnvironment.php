@@ -12,14 +12,22 @@ class ValidateEnvironment extends Command
 
     public function handle(): int
     {
-        $required = ['APP_KEY', 'KEYCLOAK_BASE_URL', 'KEYCLOAK_REALM', 'KEYCLOAK_CLIENT_ID', 'KEYCLOAK_CLIENT_SECRET', 'KEYCLOAK_REDIRECT_URI', 'KEYCLOAK_POST_LOGOUT_REDIRECT_URI'];
-        $missing = array_values(array_filter($required, fn (string $key) => blank(env($key))));
+        $required = [
+            'APP_KEY' => config('app.key'),
+            'KEYCLOAK_BASE_URL' => config('keycloak.base_url'),
+            'KEYCLOAK_REALM' => config('keycloak.realm'),
+            'KEYCLOAK_CLIENT_ID' => config('keycloak.client_id'),
+            'KEYCLOAK_CLIENT_SECRET' => config('keycloak.client_secret'),
+            'KEYCLOAK_REDIRECT_URI' => config('keycloak.redirect_uri'),
+            'KEYCLOAK_POST_LOGOUT_REDIRECT_URI' => config('keycloak.post_logout_redirect_uri'),
+        ];
+        $missing = array_keys(array_filter($required, fn (mixed $value): bool => blank($value)));
         if ($missing !== []) {
             $this->error('Missing required environment variables: '.implode(', ', $missing));
 
             return self::FAILURE;
         }
-        if (! filter_var(env('KEYCLOAK_BASE_URL'), FILTER_VALIDATE_URL)) {
+        if (! filter_var(config('keycloak.base_url'), FILTER_VALIDATE_URL)) {
             $this->error('KEYCLOAK_BASE_URL must be a valid URL.');
 
             return self::FAILURE;

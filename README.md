@@ -148,8 +148,8 @@ Users are provisioned from the immutable Keycloak `sub`:
 3. `composer validate --strict`
 4. `php -l` on every tracked PHP file
 5. `vendor/bin/pint --test` (style gate)
-6. `php artisan about`, `route:list`, and `config:cache`/`config:clear`
-7. `php artisan app:validate-environment` (with dummy Keycloak env)
+6. `php artisan route:list && php artisan about`
+7. `php artisan config:cache && php artisan app:validate-environment` with dummy Keycloak env, then `config:clear`
 8. `php artisan test --testsuite=Feature` against PostgreSQL 16 and Redis 7 (58 feature tests)
 
 ## Development

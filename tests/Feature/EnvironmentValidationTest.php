@@ -35,6 +35,19 @@ class EnvironmentValidationTest extends TestCase
         $this->assertStringContainsString('Environment configuration is valid.', Artisan::output());
     }
 
+    public function test_required_environment_configuration_is_accepted_from_cached_configuration(): void
+    {
+        $this->setEnvironment($this->environment);
+
+        foreach (array_keys($this->environment) as $key) {
+            putenv($key);
+            unset($_ENV[$key], $_SERVER[$key]);
+        }
+
+        $this->assertSame(0, Artisan::call('app:validate-environment'));
+        $this->assertStringContainsString('Environment configuration is valid.', Artisan::output());
+    }
+
     public function test_missing_client_secret_is_rejected_without_printing_secret_values(): void
     {
         $environment = $this->environment;
@@ -57,5 +70,14 @@ class EnvironmentValidationTest extends TestCase
             $_ENV[$key] = $value;
             $_SERVER[$key] = $value;
         }
+
+        config([
+            'keycloak.base_url' => $environment['KEYCLOAK_BASE_URL'] ?? null,
+            'keycloak.realm' => $environment['KEYCLOAK_REALM'] ?? null,
+            'keycloak.client_id' => $environment['KEYCLOAK_CLIENT_ID'] ?? null,
+            'keycloak.client_secret' => $environment['KEYCLOAK_CLIENT_SECRET'] ?? null,
+            'keycloak.redirect_uri' => $environment['KEYCLOAK_REDIRECT_URI'] ?? null,
+            'keycloak.post_logout_redirect_uri' => $environment['KEYCLOAK_POST_LOGOUT_REDIRECT_URI'] ?? null,
+        ]);
     }
 }
