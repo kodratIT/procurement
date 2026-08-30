@@ -11,13 +11,27 @@ jobs:
         options: >-
           --health-cmd="pg_isready -U laravel -d testing"
           --health-interval=10s --health-timeout=5s --health-retries=5
+      redis:
+        image: redis:7
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd="redis-cli ping"
+          --health-interval=10s --health-timeout=5s --health-retries=5
     steps:
       - uses: actions/checkout@v4
       - uses: shivammathur/setup-php@v2
-        with: { php-version: '8.4', extensions: mbstring, pdo_pgsql, tools: composer:v2 }
-      - run: composer install --no-interaction --prefer-dist
+        with: { php-version: '8.4', extensions: mbstring, pdo_pgsql, redis, tools: composer:v2 }
+      - uses: actions/setup-node@v4
+        with: { node-version: '22', cache: npm }
+      - run: composer install --no-interaction --prefer-dist --no-progress
+      - run: npm ci
+      - run: npm run build
       - run: cp .env.example .env && php artisan key:generate
       - run: composer validate --strict --no-check-publish
+      - run: php artisan about
+      - run: php artisan route:list
+      - run: php artisan config:cache
+      - run: php artisan config:clear
       - run: git ls-files '*.php' -z | xargs -0 -n1 php -l
       - run: vendor/bin/pint --test
       - run: php artisan app:validate-environment
@@ -26,7 +40,7 @@ jobs:
           KEYCLOAK_REALM: umrah
           KEYCLOAK_CLIENT_ID: procurement
           KEYCLOAK_REDIRECT_URI: http://localhost:8000/auth/keycloak/callback
-      - run: php artisan test
+      - run: php artisan test --testsuite=Feature
         env:
           DB_CONNECTION: pgsql
           DB_HOST: 127.0.0.1

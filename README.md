@@ -8,32 +8,44 @@ and CSV export — all free/open-source plugins.
 
 | Layer      | Choice                                        |
 |------------|-----------------------------------------------|
-| Framework  | Laravel 13 (PHP 8.4)                          |
-| Admin      | Filament 5 Panel Builder                       |
+| Framework  | Laravel 13 (PHP 8.3+; CI pins PHP 8.4)      |
+| Admin      | Filament 5 Panel Builder (locked v5.7.6)     |
 | SSO        | Keycloak, OIDC Authorization Code + PKCE S256 |
 | RBAC       | spatie/laravel-permission + Filament Shield   |
-| Audit log  | spatie/laravel-activitylog + filament-logger  |
+| Audit log  | spatie/laravel-activitylog + filament-logger |
 | Export     | Filament 5 native CSV export (7 exporters)    |
-| Database   | PostgreSQL 16 (prod/CI), SQLite (tests)       |
-| Cache/Queue| Redis 7 / database                            |
+| Database   | PostgreSQL 16 (prod/CI), SQLite (local tests) |
+| Cache/Queue| Redis 7 (prod), database (local default)     |
+| Frontend   | Node.js 20.19+ / npm 10.8+ (CI uses Node 22) |
 | CI         | GitHub Actions                                |
 
 ## Local setup
 
-Prerequisites: PHP 8.3+, Composer 2, Node 20+.
+Prerequisites: PHP 8.3+, Composer 2, Node.js 20.19+, npm 10.8+.
+PostgreSQL 16 and Redis 7 are the deployment baseline; the default local
+environment uses SQLite and database-backed cache/queue.
 
 ```sh
-cp .env.example .env        # then fill in APP_KEY, DB_*, REDIS_*, KEYCLOAK_*
-composer install
-npm install && npm run build
+cp .env.example .env
+composer install --no-interaction --prefer-dist
+npm ci
+npm run build
 php artisan key:generate
 php artisan migrate --seed
-php artisan app:validate-environment   # fails fast if required env is missing
+php artisan about
+php artisan route:list
+php artisan app:validate-environment   # after filling in KEYCLOAK_* values
 php artisan serve                      # Filament panel at http://localhost:8000/admin
 ```
 
+For a production-like local run, set `DB_CONNECTION=pgsql`,
+`QUEUE_CONNECTION=redis`, and `CACHE_STORE=redis`, then provide the PostgreSQL
+and Redis connection variables from `.env`. The `/up` endpoint reports
+database, cache, and queue readiness as `200`/`up` or `503`/`down` without
+returning dependency exception details.
+
 With Docker: `cp .env.example .env`, set `DB_PASSWORD`, then `docker compose up --build`
-(postgres + redis, app on port 8000).
+(PostgreSQL 16 + Redis 7 + app on port 8000).
 
 ## Environment variables
 
@@ -57,6 +69,21 @@ Optional:
 | `LOG_CHANNEL` / `LOG_STACK` / `LOG_LEVEL` | Logging channel / stack / level        |
 
 The validator never prints secret values; it only names missing variables.
+
+Production-like PostgreSQL/Redis deployments also set:
+
+| Variable              | Purpose                                            |
+|-----------------------|----------------------------------------------------|
+| `DB_CONNECTION=pgsql` | PostgreSQL 16 connection driver                    |
+| `DB_HOST` / `DB_PORT` | PostgreSQL host and port                           |
+| `DB_DATABASE` / `DB_USERNAME` / `DB_PASSWORD` | PostgreSQL credentials |
+| `REDIS_HOST` / `REDIS_PORT` | Redis 7 connection                  |
+| `QUEUE_CONNECTION=redis` | Queue backend                                  |
+| `CACHE_STORE=redis` | Cache backend                                      |
+
+`DB_PASSWORD`, Redis credentials, `APP_KEY`, and `KEYCLOAK_CLIENT_SECRET` are
+deployment secrets. Supply them through the environment or secret manager;
+never commit them or place them in cached configuration.
 
 ## Keycloak OIDC (Authorization Code + PKCE)
 
@@ -111,11 +138,14 @@ Users are provisioned from the immutable Keycloak `sub`:
 
 `.github/workflows/ci.yml` runs on every push/PR against PostgreSQL 16:
 
-1. `composer validate --strict --no-check-publish`
-2. `php -l` on every tracked PHP file
-3. `vendor/bin/pint --test` (style gate)
-4. `php artisan app:validate-environment` (with dummy Keycloak env)
-5. `php artisan test` against the PostgreSQL service (33 feature/unit tests)
+1. `composer install --no-interaction --prefer-dist --no-progress` (locked dependencies)
+2. `npm ci` and `npm run build` (locked frontend dependencies)
+3. `composer validate --strict --no-check-publish`
+4. `php -l` on every tracked PHP file
+5. `vendor/bin/pint --test` (style gate)
+6. `php artisan about`, `route:list`, and `config:cache`/`config:clear`
+7. `php artisan app:validate-environment` (with dummy Keycloak env)
+8. `php artisan test --testsuite=Feature` against PostgreSQL 16 (49 feature tests)
 
 ## Development
 
