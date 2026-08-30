@@ -17,6 +17,14 @@ Route::get('/up', HealthController::class)
         ShareErrorsFromSession::class,
     ])
     ->name('health');
+Route::get('/health/ready', HealthController::class)
+    ->withoutMiddleware([
+        AddQueuedCookiesToResponse::class,
+        PreventRequestForgery::class,
+        StartSession::class,
+        ShareErrorsFromSession::class,
+    ])
+    ->name('readiness');
 Route::get('/', fn () => view('welcome'));
 Route::middleware('guest')->group(function () {
     Route::get('/auth/keycloak/redirect', [KeycloakController::class, 'redirect'])->name('keycloak.redirect');

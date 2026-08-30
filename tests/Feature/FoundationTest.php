@@ -21,6 +21,7 @@ class FoundationTest extends TestCase
     {
         $this->getJson('/up')
             ->assertOk()
+            ->assertHeader('Cache-Control', 'no-store, private')
             ->assertJson([
                 'status' => 'up',
                 'checks' => [
@@ -29,6 +30,14 @@ class FoundationTest extends TestCase
                     'queue' => 'up',
                 ],
             ]);
+    }
+
+    public function test_readiness_alias_reports_dependency_readiness(): void
+    {
+        $this->getJson('/health/ready')
+            ->assertOk()
+            ->assertHeader('Cache-Control', 'no-store, private')
+            ->assertJsonPath('status', 'up');
     }
 
     public function test_health_check_returns_unavailable_without_exposing_failure_details(): void
@@ -89,6 +98,8 @@ class FoundationTest extends TestCase
 
     public function test_primary_application_routes_are_registered(): void
     {
+        $this->assertNotNull(route('health'));
+        $this->assertNotNull(route('readiness'));
         $this->assertNotNull(route('keycloak.redirect'));
         $this->assertNotNull(route('keycloak.callback'));
         $this->assertNotNull(route('logout'));

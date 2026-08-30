@@ -42,11 +42,11 @@ php artisan app:validate-environment   # after filling in KEYCLOAK_* values
 php artisan serve                      # Filament panel at http://localhost:8000/admin
 ```
 
-For a production-like local run, set `DB_CONNECTION=pgsql`,
-`QUEUE_CONNECTION=redis`, and `CACHE_STORE=redis`, then provide the PostgreSQL
-and Redis connection variables from `.env`. The `/up` endpoint reports
-database, cache, and queue readiness as `200`/`up` or `503`/`down` without
-returning dependency exception details.
+For a production-like local run, set `DB_CONNECTION=pgsql`, `QUEUE_CONNECTION=redis`, and
+`CACHE_STORE=redis`, then provide the PostgreSQL and Redis connection variables from `.env`.
+The `/up` liveness/readiness endpoint and `/health/ready` readiness alias report database,
+cache, and queue readiness as `200`/`up` or `503`/`down`. Responses are `no-store` and never
+return dependency exception details.
 
 With Docker: `cp .env.example .env`, set `DB_PASSWORD`, then `docker compose up --build`
 (PostgreSQL 16 + Redis 7 + app on port 8000).
@@ -141,7 +141,7 @@ Users are provisioned from the immutable Keycloak `sub`:
 
 ## CI (GitHub Actions)
 
-`.github/workflows/ci.yml` runs on every push/PR against PostgreSQL 16:
+`.github/workflows/ci.yml` runs on every push/PR against PostgreSQL 16 and Redis 7:
 
 1. `composer install --no-interaction --prefer-dist --no-progress` (locked dependencies)
 2. `npm ci` and `npm run build` (locked frontend dependencies)
@@ -150,7 +150,7 @@ Users are provisioned from the immutable Keycloak `sub`:
 5. `vendor/bin/pint --test` (style gate)
 6. `php artisan about`, `route:list`, and `config:cache`/`config:clear`
 7. `php artisan app:validate-environment` (with dummy Keycloak env)
-8. `php artisan test --testsuite=Feature` against PostgreSQL 16 (53 feature tests)
+8. `php artisan test --testsuite=Feature` against PostgreSQL 16 and Redis 7 (58 feature tests)
 
 ## Development
 
@@ -160,4 +160,5 @@ composer test           # run the test suite
 vendor/bin/pint         # auto-format code
 ```
 
-Tests use in-memory SQLite (`phpunit.xml`); CI runs the same suite on PostgreSQL.
+Tests use in-memory SQLite with array/sync test drivers (`phpunit.xml`); CI runs the same suite on
+PostgreSQL 16 with Redis 7.

@@ -55,10 +55,10 @@ final class HealthController extends Controller
         $statusCode = $healthy ? 200 : 503;
         $payload = compact('status', 'checks');
 
-        if ($request->expectsJson()) {
-            return response()->json($payload, $statusCode);
-        }
+        $response = $request->expectsJson()
+            ? response()->json($payload, $statusCode)
+            : response()->view('health', $payload, $statusCode);
 
-        return response()->view('health', $payload, $statusCode);
+        return $response->header('Cache-Control', 'no-store');
     }
 }

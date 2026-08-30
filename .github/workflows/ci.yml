@@ -3,6 +3,19 @@ on: [push, pull_request]
 jobs:
   test:
     runs-on: ubuntu-latest
+    env:
+      DB_CONNECTION: pgsql
+      DB_HOST: 127.0.0.1
+      DB_PORT: 5432
+      DB_DATABASE: testing
+      DB_USERNAME: laravel
+      DB_PASSWORD: password
+      CACHE_STORE: redis
+      QUEUE_CONNECTION: redis
+      REDIS_CLIENT: phpredis
+      REDIS_HOST: 127.0.0.1
+      REDIS_PORT: 6379
+
     services:
       postgres:
         image: postgres:16
@@ -50,10 +63,3 @@ jobs:
           KEYCLOAK_REDIRECT_URI: http://localhost:8000/auth/keycloak/callback
           KEYCLOAK_POST_LOGOUT_REDIRECT_URI: http://localhost:8000
       - run: php artisan test --testsuite=Feature
-        env:
-          DB_CONNECTION: pgsql
-          DB_HOST: 127.0.0.1
-          DB_PORT: 5432
-          DB_DATABASE: testing
-          DB_USERNAME: laravel
-          DB_PASSWORD: password
