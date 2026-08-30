@@ -12,7 +12,7 @@ class ValidateEnvironment extends Command
 
     public function handle(): int
     {
-        $required = ['APP_KEY', 'KEYCLOAK_BASE_URL', 'KEYCLOAK_REALM', 'KEYCLOAK_CLIENT_ID', 'KEYCLOAK_REDIRECT_URI'];
+        $required = ['APP_KEY', 'KEYCLOAK_BASE_URL', 'KEYCLOAK_REALM', 'KEYCLOAK_CLIENT_ID', 'KEYCLOAK_CLIENT_SECRET', 'KEYCLOAK_REDIRECT_URI', 'KEYCLOAK_POST_LOGOUT_REDIRECT_URI'];
         $missing = array_values(array_filter($required, fn (string $key) => blank(env($key))));
         if ($missing !== []) {
             $this->error('Missing required environment variables: '.implode(', ', $missing));

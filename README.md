@@ -57,7 +57,9 @@ Required (fail fast via `php artisan app:validate-environment`):
 | `KEYCLOAK_BASE_URL`   | Keycloak origin, e.g. `https://sso.example.com`    |
 | `KEYCLOAK_REALM`      | Keycloak realm, e.g. `umrah`                       |
 | `KEYCLOAK_CLIENT_ID`  | OIDC client id                                     |
+| `KEYCLOAK_CLIENT_SECRET` | OIDC confidential-client secret                   |
 | `KEYCLOAK_REDIRECT_URI` | Callback URL, e.g. `https://app.example.com/auth/keycloak/callback` |
+| `KEYCLOAK_POST_LOGOUT_REDIRECT_URI` | Allow-listed post-logout callback URL |
 
 Optional:
 
@@ -65,7 +67,6 @@ Optional:
 |-----------------------|----------------------------------------------------|
 | `KEYCLOAK_ISSUER`     | ID-token `iss` override (default: `<BASE_URL>/realms/<REALM>`) |
 | `KEYCLOAK_AUDIENCE`   | ID-token `aud` override (default: `KEYCLOAK_CLIENT_ID`)        |
-| `KEYCLOAK_CLIENT_SECRET` | Confidential-client secret (omit for public client)        |
 | `LOG_CHANNEL` / `LOG_STACK` / `LOG_LEVEL` | Logging channel / stack / level        |
 
 The validator never prints secret values; it only names missing variables.
@@ -140,12 +141,12 @@ Users are provisioned from the immutable Keycloak `sub`:
 
 1. `composer install --no-interaction --prefer-dist --no-progress` (locked dependencies)
 2. `npm ci` and `npm run build` (locked frontend dependencies)
-3. `composer validate --strict --no-check-publish`
+3. `composer validate --strict`
 4. `php -l` on every tracked PHP file
 5. `vendor/bin/pint --test` (style gate)
 6. `php artisan about`, `route:list`, and `config:cache`/`config:clear`
 7. `php artisan app:validate-environment` (with dummy Keycloak env)
-8. `php artisan test --testsuite=Feature` against PostgreSQL 16 (49 feature tests)
+8. `php artisan test --testsuite=Feature` against PostgreSQL 16 (53 feature tests)
 
 ## Development
 

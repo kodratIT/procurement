@@ -27,7 +27,7 @@ jobs:
       - run: npm ci
       - run: npm run build
       - run: cp .env.example .env && php artisan key:generate
-      - run: composer validate --strict --no-check-publish
+      - run: composer validate --strict
       - run: php artisan about
       - run: php artisan route:list
       - run: php artisan config:cache
@@ -39,7 +39,9 @@ jobs:
           KEYCLOAK_BASE_URL: https://keycloak.example.test
           KEYCLOAK_REALM: umrah
           KEYCLOAK_CLIENT_ID: procurement
+          KEYCLOAK_CLIENT_SECRET: ci-only-not-a-secret
           KEYCLOAK_REDIRECT_URI: http://localhost:8000/auth/keycloak/callback
+          KEYCLOAK_POST_LOGOUT_REDIRECT_URI: http://localhost:8000
       - run: php artisan test --testsuite=Feature
         env:
           DB_CONNECTION: pgsql

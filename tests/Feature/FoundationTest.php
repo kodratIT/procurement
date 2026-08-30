@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Queue;
 use RuntimeException;
 use Tests\TestCase;
 
@@ -38,6 +39,19 @@ class FoundationTest extends TestCase
             ->assertJsonPath('status', 'down')
             ->assertJsonPath('checks.database', 'down')
             ->assertJsonMissing(['message' => 'database password must not be exposed']);
+    }
+
+    public function test_health_check_returns_unavailable_when_queue_is_down(): void
+    {
+        Queue::shouldReceive('connection')
+            ->once()
+            ->andThrow(new RuntimeException('queue credentials must not be exposed'));
+
+        $this->getJson('/up')
+            ->assertStatus(503)
+            ->assertJsonPath('status', 'down')
+            ->assertJsonPath('checks.queue', 'down')
+            ->assertJsonMissing(['message' => 'queue credentials must not be exposed']);
     }
 
     public function test_primary_application_routes_are_registered(): void

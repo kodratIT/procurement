@@ -24,6 +24,8 @@ class KeycloakOidcCallbackTest extends TestCase
 
     private const REDIRECT_URI = 'https://procurement.example.test/auth/keycloak/callback';
 
+    private const POST_LOGOUT_REDIRECT_URI = 'https://procurement.example.test/';
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -36,6 +38,7 @@ class KeycloakOidcCallbackTest extends TestCase
             'keycloak.client_id' => self::CLIENT_ID,
             'keycloak.client_secret' => 'client-secret',
             'keycloak.redirect_uri' => self::REDIRECT_URI,
+            'keycloak.post_logout_redirect_uri' => self::POST_LOGOUT_REDIRECT_URI,
         ]);
     }
 
@@ -182,6 +185,17 @@ class KeycloakOidcCallbackTest extends TestCase
         $response->assertSessionHasErrors('oauth');
         $this->assertGuest();
         $this->assertStringNotContainsString('super-secret-access-token', (string) file_get_contents(storage_path('logs/laravel.log')));
+    }
+
+    public function test_logout_uses_configured_post_logout_redirect_uri(): void
+    {
+        $user = User::factory()->create(['keycloak_sub' => 'logout-sub']);
+
+        $response = $this->actingAs($user)->post(route('logout'));
+
+        $response->assertRedirect();
+        parse_str((string) parse_url((string) $response->headers->get('Location'), PHP_URL_QUERY), $query);
+        $this->assertSame(self::POST_LOGOUT_REDIRECT_URI, $query['post_logout_redirect_uri']);
     }
 
     private function idToken(array $claims): string

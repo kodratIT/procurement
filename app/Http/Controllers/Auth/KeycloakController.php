@@ -94,7 +94,7 @@ class KeycloakController extends Controller
 
         return redirect(config('keycloak.base_url').'/realms/'.rawurlencode(config('keycloak.realm')).'/protocol/openid-connect/logout?'.http_build_query([
             'client_id' => config('keycloak.client_id'),
-            'post_logout_redirect_uri' => url('/'),
+            'post_logout_redirect_uri' => config('keycloak.post_logout_redirect_uri'),
         ]));
     }
 
