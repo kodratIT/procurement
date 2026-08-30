@@ -3,9 +3,6 @@
 namespace App\Providers;
 
 use App\Models\Activity;
-use App\Models\Branch;
-use App\Models\CostCenter;
-use App\Models\Department;
 use App\Models\DepartureBatch;
 use App\Models\Office;
 use App\Models\ProcurementCategory;
@@ -17,13 +14,13 @@ use App\Models\Role;
 use App\Models\UserAssignment;
 use App\Models\Vendor;
 use App\Policies\ActivityPolicy;
-use App\Policies\BranchPolicy;
 use App\Policies\ContextPolicy;
-use App\Policies\CostCenterPolicy;
-use App\Policies\DepartmentPolicy;
 use App\Policies\OfficePolicy;
 use App\Policies\ProcurementCategoryPolicy;
 use App\Policies\ProcurementFieldPolicy;
+use App\Policies\ProcurementItemPolicy;
+use App\Policies\ProcurementUnitPolicy;
+use App\Policies\ProcurementVariantPolicy;
 use App\Policies\RolePolicy;
 use App\Policies\UserAssignmentPolicy;
 use App\Services\AccessContextService;
@@ -49,23 +46,17 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         Gate::policy(Activity::class, ActivityPolicy::class);
-        Gate::policy(Branch::class, BranchPolicy::class);
-        Gate::policy(CostCenter::class, CostCenterPolicy::class);
-        Gate::policy(Department::class, DepartmentPolicy::class);
         Gate::policy(ProcurementField::class, ProcurementFieldPolicy::class);
         Gate::policy(ProcurementCategory::class, ProcurementCategoryPolicy::class);
+        Gate::policy(ProcurementItem::class, ProcurementItemPolicy::class);
+        Gate::policy(ProcurementUnit::class, ProcurementUnitPolicy::class);
+        Gate::policy(ProcurementVariant::class, ProcurementVariantPolicy::class);
         Gate::policy(Office::class, OfficePolicy::class);
         Gate::policy(Role::class, RolePolicy::class);
         Gate::policy(SpatieRole::class, RolePolicy::class);
         Gate::policy(UserAssignment::class, UserAssignmentPolicy::class);
 
-        foreach ([
-            Vendor::class,
-            ProcurementItem::class,
-            ProcurementUnit::class,
-            ProcurementVariant::class,
-            DepartureBatch::class,
-        ] as $model) {
+        foreach ([Vendor::class, DepartureBatch::class] as $model) {
             Gate::policy($model, ContextPolicy::class);
         }
 

@@ -121,16 +121,61 @@ class ProcurementMasterSeeder extends Seeder
             );
         }
         $items = [
-            ['KAIN-IHRAM', 'Kain Ihram', 'PAKAIAN', 'SET'], ['MUKENA', 'Mukena', 'IBADAH', 'PCS'],
-            ['TAS-SANDANG', 'Tas Sandang', 'PERJALANAN', 'PCS'], ['KOPER', 'Koper Jamaah', 'PERJALANAN', 'PCS'],
-            ['MASKER', 'Masker Medis', 'KESEHATAN', 'BOX'], ['OBAT-PRIBADI', 'Paket Obat Dasar', 'KESEHATAN', 'PACK'],
+            ['SERAGAM', 'Seragam Jamaah', 'PAKAIAN', 'SET', 325000, ['Bahan' => 'Drill premium', 'Warna' => 'Putih / Abu-abu']],
+            ['KAIN-IHRAM', 'Kain Ihram', 'PAKAIAN', 'SET', 175000, ['Bahan' => 'Katun 100%', 'Panjang' => '2,5 m', 'Jenis' => 'Tanpa jahit']],
+            ['KOPER', 'Koper Jamaah', 'PERJALANAN', 'PCS', 425000, ['Bahan' => 'ABS', 'Ukuran' => '20 inci', 'Berat' => '3,2 kg']],
+            ['MUKENA', 'Mukena', 'IBADAH', 'PCS', 210000, ['Bahan' => 'Rayon premium', 'Ukuran' => 'All size', 'Paket' => 'Mukena + tas']],
+            ['ID-CARD', 'ID Card Jamaah', 'JAMAAH', 'PCS', 15000, ['Bahan' => 'PVC', 'Ukuran' => '86 x 54 mm']],
+            ['LABEL-KOPER', 'Label Koper', 'JAMAAH', 'PCS', 12000, ['Bahan' => 'PVC', 'Tali' => 'Kulit sintetis']],
+            ['TAS-PASPOR', 'Tas Paspor', 'JAMAAH', 'PCS', 45000, ['Bahan' => 'Kanvas', 'Kompartemen' => '2']],
         ];
-        foreach ($items as [$code,$name,$category,$unit]) {
-            $item = ProcurementItem::updateOrCreate(['code' => $code], ['name' => $name, 'category_id' => $categories[$category]->id, 'unit_id' => $units[$unit]->id, 'is_active' => true]);
-            if ($code === 'KAIN-IHRAM') {
-                foreach ([['S', 'Kecil'], ['M', 'Sedang'], ['L', 'Besar'], ['XL', 'Ekstra Besar']] as [$variant,$label]) {
-                    ProcurementVariant::updateOrCreate(['item_id' => $item->id, 'code' => $variant], ['name' => 'Ukuran '.$label, 'value' => $variant, 'is_active' => true]);
-                }
+        foreach ($items as [$code, $name, $category, $unit, $price, $specifications]) {
+            $item = ProcurementItem::updateOrCreate(
+                ['code' => $code],
+                [
+                    'name' => $name,
+                    'category_id' => $categories[$category]->id,
+                    'unit_id' => $units[$unit]->id,
+                    'reference_price' => $price,
+                    'reference_currency' => 'IDR',
+                    'specifications' => $specifications,
+                    'is_active' => true,
+                ],
+            );
+
+            $variantDefinitions = match ($code) {
+                'SERAGAM', 'KAIN-IHRAM' => [
+                    ['S', 'Kecil'],
+                    ['M', 'Sedang'],
+                    ['L', 'Besar'],
+                    ['XL', 'Ekstra Besar'],
+                ],
+                'MUKENA' => [
+                    ['PUTIH', 'Putih'],
+                    ['NAVY', 'Navy'],
+                    ['ROSE', 'Rose'],
+                ],
+                'KOPER' => [
+                    ['20', '20 inci'],
+                    ['24', '24 inci'],
+                ],
+                default => [],
+            };
+
+            foreach ($variantDefinitions as [$variantCode, $variantValue]) {
+                $variationType = in_array($code, ['MUKENA', 'KOPER'], true)
+                    ? ($code === 'MUKENA' ? ProcurementVariant::TYPE_WARNA : ProcurementVariant::TYPE_UKURAN)
+                    : ProcurementVariant::TYPE_UKURAN;
+
+                ProcurementVariant::updateOrCreate(
+                    ['item_id' => $item->id, 'code' => $variantCode],
+                    [
+                        'variation_type' => $variationType,
+                        'name' => ucfirst($variationType).' '.$variantValue,
+                        'value' => $variantValue,
+                        'is_active' => true,
+                    ],
+                );
             }
         }
         Vendor::updateOrCreate(['code' => 'VND-UMROH-001'], ['name' => 'Al Madinah Supplies', 'contact_name' => 'Tim Sales', 'phone' => '021-555-0101', 'email' => 'sales@almadinah.example', 'is_active' => true]);

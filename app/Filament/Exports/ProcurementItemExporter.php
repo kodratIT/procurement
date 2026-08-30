@@ -15,11 +15,14 @@ class ProcurementItemExporter extends Exporter
     public static function getColumns(): array
     {
         return [
-            ExportColumn::make('code'),
+            ExportColumn::make('code')->label('SKU'),
             ExportColumn::make('name'),
             ExportColumn::make('category.name')->label('Kategori'),
             ExportColumn::make('unit.name')->label('Satuan'),
             ExportColumn::make('description'),
+            ExportColumn::make('reference_price')->label('Harga Referensi'),
+            ExportColumn::make('reference_currency')->label('Mata Uang'),
+            ExportColumn::make('specifications')->label('Spesifikasi'),
             ExportColumn::make('is_active'),
             ExportColumn::make('created_at'),
         ];

@@ -8,7 +8,6 @@ use App\Models\Department;
 use App\Models\DepartureBatch;
 use App\Models\Office;
 use App\Models\ProcurementItem;
-use App\Models\ProcurementUnit;
 use App\Models\PurchaseRequest;
 use App\Models\PurchaseRequestItem;
 use App\Models\User;
@@ -225,13 +224,12 @@ class PurchaseRequestSchemaTest extends TestCase
     public function test_items_relate_to_master_data_and_header(): void
     {
         $procurementItem = ProcurementItem::factory()->create();
-        $unit = ProcurementUnit::factory()->create();
         $request = PurchaseRequest::factory()->create();
 
         $item = PurchaseRequestItem::factory()->create([
             'purchase_request_id' => $request->id,
             'procurement_item_id' => $procurementItem->id,
-            'procurement_unit_id' => $unit->id,
+            'procurement_unit_id' => $procurementItem->unit_id,
         ]);
 
         // The PurchaseRequest model carries an office global scope; the
@@ -239,7 +237,7 @@ class PurchaseRequestSchemaTest extends TestCase
         // no authenticated office is present in the test.
         $this->assertTrue($item->purchaseRequest()->acrossOffices()->first()->is($request));
         $this->assertTrue($item->procurementItem->is($procurementItem));
-        $this->assertTrue($item->procurementUnit->is($unit));
+        $this->assertTrue($item->procurementUnit->is($procurementItem->unit));
     }
 
     public function test_status_defaults_to_draft_and_allows_valid_transitions(): void

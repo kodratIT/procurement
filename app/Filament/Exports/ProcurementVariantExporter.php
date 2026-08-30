@@ -17,7 +17,9 @@ class ProcurementVariantExporter extends Exporter
         return [
             ExportColumn::make('code'),
             ExportColumn::make('name'),
+            ExportColumn::make('variation_type')->label('Tipe Variasi'),
             ExportColumn::make('value'),
+            ExportColumn::make('attributes')->label('Atribut'),
             ExportColumn::make('item.name')->label('Item'),
             ExportColumn::make('is_active'),
             ExportColumn::make('created_at'),

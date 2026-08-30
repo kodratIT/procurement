@@ -14,8 +14,11 @@ class PurchaseRequestItem extends Model
         'purchase_request_id',
         'procurement_item_id',
         'procurement_unit_id',
+        'procurement_variant_id',
         'item_name',
         'unit_name',
+        'variant_name',
+        'variant_value',
         'quantity',
         'unit_price',
         'line_total',
@@ -33,6 +36,7 @@ class PurchaseRequestItem extends Model
                 throw new \InvalidArgumentException('unit_price must not be negative.');
             }
 
+            $item->validateCatalogReferences();
             $item->calculateLineTotal();
         });
 
@@ -45,12 +49,66 @@ class PurchaseRequestItem extends Model
         });
     }
 
+    private function validateCatalogReferences(): void
+    {
+        if ($this->procurement_item_id === null) {
+            if ($this->procurement_variant_id !== null || $this->procurement_unit_id !== null) {
+                throw new \InvalidArgumentException('Catalog references require an item.');
+            }
+
+            return;
+        }
+
+        if ($this->exists && ! $this->isDirty([
+            'procurement_item_id',
+            'procurement_unit_id',
+            'procurement_variant_id',
+        ])) {
+            return;
+        }
+
+        $catalogItem = ProcurementItem::query()
+            ->availableForNewTransactions()
+            ->find($this->procurement_item_id);
+
+        if ($catalogItem === null) {
+            throw new \InvalidArgumentException('The item is inactive or unavailable for new transactions.');
+        }
+
+        if ($this->procurement_unit_id !== null) {
+            if ((int) $this->procurement_unit_id !== (int) $catalogItem->unit_id) {
+                throw new \InvalidArgumentException('The unit does not belong to the selected item.');
+            }
+
+            $this->unit_name ??= $catalogItem->unit->name;
+        }
+
+        $this->item_name ??= $catalogItem->name;
+
+        if ($this->procurement_variant_id === null) {
+            return;
+        }
+
+        $variant = ProcurementVariant::query()
+            ->availableForNewTransactions()
+            ->where('item_id', $catalogItem->id)
+            ->find($this->procurement_variant_id);
+
+        if ($variant === null) {
+            throw new \InvalidArgumentException('The variant is inactive or does not belong to the selected item.');
+        }
+
+        $this->variant_name ??= $variant->name;
+        $this->variant_value ??= $variant->value;
+    }
+
     protected function casts(): array
     {
         return [
             'purchase_request_id' => 'integer',
             'procurement_item_id' => 'integer',
             'procurement_unit_id' => 'integer',
+            'procurement_variant_id' => 'integer',
             'quantity' => 'decimal:2',
             'unit_price' => 'decimal:2',
             'line_total' => 'decimal:2',
@@ -71,6 +129,11 @@ class PurchaseRequestItem extends Model
     public function procurementUnit(): BelongsTo
     {
         return $this->belongsTo(ProcurementUnit::class);
+    }
+
+    public function procurementVariant(): BelongsTo
+    {
+        return $this->belongsTo(ProcurementVariant::class);
     }
 
     /**
