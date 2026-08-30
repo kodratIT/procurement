@@ -9,8 +9,10 @@ use App\Filament\Exports\ProcurementCategoryExporter;
 use App\Models\ProcurementCategory;
 use App\Models\User;
 use App\Services\MultiOfficeAuthorization;
+use App\Support\ProcurementCategoryConfiguration;
 use App\Support\ProcurementPermissions;
 use Filament\Actions\Action;
+use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ExportBulkAction;
 use Filament\Forms\Components\Select;
@@ -53,6 +55,11 @@ class ProcurementCategoryResource extends Resource
 
     public static function form(Schema $schema): Schema
     {
+        $flagToggles = [];
+        foreach (ProcurementCategoryConfiguration::flagLabels() as $field => $label) {
+            $flagToggles[] = Toggle::make($field)->label($label);
+        }
+
         return $schema
             ->components([
                 TextInput::make('code')
@@ -68,13 +75,7 @@ class ProcurementCategoryResource extends Resource
                     ->enum(ProcurementCategoryType::class)
                     ->required(),
                 Textarea::make('description')->columnSpanFull(),
-                Toggle::make('requires_batch')->label('Wajib batch keberangkatan'),
-                Toggle::make('requires_jamaah')->label('Wajib terkait jamaah'),
-                Toggle::make('requires_vendor')->label('Wajib vendor'),
-                Toggle::make('requires_quotation')->label('Wajib quotation'),
-                Toggle::make('requires_receipt')->label('Wajib penerimaan'),
-                Toggle::make('requires_invoice')->label('Wajib invoice'),
-                Toggle::make('requires_po')->label('Wajib purchase order'),
+                ...$flagToggles,
                 TextInput::make('workflow_reference')
                     ->label('Referensi workflow')
                     ->maxLength(100),
@@ -89,6 +90,13 @@ class ProcurementCategoryResource extends Resource
 
     public static function table(Table $table): Table
     {
+        $flagColumns = [];
+        foreach (ProcurementCategoryConfiguration::flagLabels() as $field => $label) {
+            $flagColumns[] = IconColumn::make($field)
+                ->boolean()
+                ->label(str_replace('Wajib ', '', $label));
+        }
+
         return $table
             ->columns([
                 TextColumn::make('code')->searchable()->sortable(),
@@ -98,13 +106,7 @@ class ProcurementCategoryResource extends Resource
                     ->formatStateUsing(fn (mixed $state): string => $state instanceof ProcurementCategoryType
                         ? $state->label()
                         : (ProcurementCategoryType::tryFrom((string) $state)?->label() ?? (string) $state)),
-                IconColumn::make('requires_batch')->boolean()->label('Batch'),
-                IconColumn::make('requires_jamaah')->boolean()->label('Jamaah'),
-                IconColumn::make('requires_vendor')->boolean()->label('Vendor'),
-                IconColumn::make('requires_quotation')->boolean()->label('Quotation'),
-                IconColumn::make('requires_receipt')->boolean()->label('Penerimaan'),
-                IconColumn::make('requires_invoice')->boolean()->label('Invoice'),
-                IconColumn::make('requires_po')->boolean()->label('PO'),
+                ...$flagColumns,
                 TextColumn::make('workflow_reference')->label('Workflow')->toggleable(),
                 TextColumn::make('number_template')->label('Template nomor')->toggleable(),
                 IconColumn::make('is_active')->label('Aktif')->boolean(),
@@ -116,6 +118,7 @@ class ProcurementCategoryResource extends Resource
                 SelectFilter::make('type')->options(ProcurementCategoryType::options()),
             ])
             ->recordActions([
+                DeleteAction::make(),
                 EditAction::make(),
                 Action::make('deactivate')
                     ->label('Nonaktifkan')

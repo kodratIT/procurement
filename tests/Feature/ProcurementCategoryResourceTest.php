@@ -38,6 +38,20 @@ class ProcurementCategoryResourceTest extends TestCase
         $this->assertFalse($admin->can('deleteAny', ProcurementCategory::class));
     }
 
+    public function test_unused_category_can_be_deleted_by_a_configured_admin(): void
+    {
+        $this->seed(ProcurementRolesSeeder::class);
+        $admin = User::factory()->create();
+        $admin->assignRole('Admin');
+        $category = ProcurementCategory::factory()->create();
+
+        $this->assertTrue($admin->can('delete', $category));
+
+        $category->delete();
+
+        $this->assertModelMissing($category);
+    }
+
     public function test_resource_query_uses_the_active_assignment_scope(): void
     {
         $this->seed(ProcurementRolesSeeder::class);

@@ -21,6 +21,22 @@ final readonly class ProcurementCategoryConfiguration
         public ?string $numberTemplate,
     ) {}
 
+    /**
+     * @return array<string, string>
+     */
+    public static function flagLabels(): array
+    {
+        return [
+            'requires_batch' => 'Wajib batch keberangkatan',
+            'requires_jamaah' => 'Wajib terkait jamaah',
+            'requires_vendor' => 'Wajib vendor',
+            'requires_quotation' => 'Wajib quotation',
+            'requires_receipt' => 'Wajib penerimaan',
+            'requires_invoice' => 'Wajib invoice',
+            'requires_po' => 'Wajib purchase order',
+        ];
+    }
+
     public function requiresBatch(): bool
     {
         return $this->requiresBatch;

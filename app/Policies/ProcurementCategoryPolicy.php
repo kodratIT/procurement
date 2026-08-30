@@ -43,7 +43,12 @@ final class ProcurementCategoryPolicy
 
     public function delete(User $user, ProcurementCategory $category): bool
     {
-        return false;
+        return $this->authorization->canManageRecord(
+            $user,
+            ProcurementPermissions::MANAGE_MASTER_DATA,
+            $category,
+        ) && ! $category->purchaseRequests()->exists()
+            && ! $category->items()->exists();
     }
 
     public function deleteAny(User $user): bool
