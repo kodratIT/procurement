@@ -1,5 +1,9 @@
 name: CI
 on: [push, pull_request]
+
+permissions:
+  contents: read
+
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -16,8 +20,13 @@ jobs:
       - uses: shivammathur/setup-php@v2
         with: { php-version: '8.4', extensions: mbstring, pdo_pgsql, tools: composer:v2 }
       - run: composer install --no-interaction --prefer-dist
+      - uses: actions/setup-node@v4
+        with: { node-version: '22', cache: npm }
+      - run: npm ci
+      - run: npm run build
       - run: cp .env.example .env && php artisan key:generate
       - run: composer validate --strict --no-check-publish
+      - run: php artisan about
       - run: git ls-files '*.php' -z | xargs -0 -n1 php -l
       - run: vendor/bin/pint --test
       - run: php artisan app:validate-environment
@@ -26,6 +35,14 @@ jobs:
           KEYCLOAK_REALM: umrah
           KEYCLOAK_CLIENT_ID: procurement
           KEYCLOAK_REDIRECT_URI: http://localhost:8000/auth/keycloak/callback
+      - run: php artisan migrate:fresh --seed --force
+        env:
+          DB_CONNECTION: pgsql
+          DB_HOST: 127.0.0.1
+          DB_PORT: 5432
+          DB_DATABASE: testing
+          DB_USERNAME: laravel
+          DB_PASSWORD: password
       - run: php artisan test
         env:
           DB_CONNECTION: pgsql

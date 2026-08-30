@@ -34,8 +34,29 @@ php artisan serve                      # Filament panel at http://localhost:8000
 
 The default local configuration uses PostgreSQL, Redis for cache/queue/session, and the
 private local filesystem at `storage/app/private`. The application timezone is `Asia/Jakarta`.
-Mail defaults to the `log` mailer; replace the `MAIL_*` placeholders only when an SMTP service
-is available. Never commit `.env` or real credentials.
+Mail defaults to the `log` mailer; replace the `MAIL_*` placeholders only when an SMTP service is
+available. Never commit `.env` or real credentials.
+
+For a disposable local database, use SQLite by setting `DB_CONNECTION=sqlite` and
+`DB_DATABASE=database/database.sqlite` in `.env`, then run `php artisan migrate --seed`. The test
+suite always uses an in-memory SQLite database; CI runs migrations and the same tests against
+PostgreSQL 16.
+
+### Foundation verification
+
+Run the complete foundation check before opening a pull request:
+
+```sh
+composer validate --no-interaction
+php artisan about
+php artisan migrate:fresh --seed --force  # disposable database only
+php artisan test
+npm run build
+```
+
+The built-in `GET /up` health endpoint and the Filament smoke test are covered by
+`tests/Feature/FoundationTest.php`. The smoke test verifies that the `/admin` panel boots and that
+the role and master-data seeders produce usable baseline data.
 
 ### Laravel and Filament foundation installation
 
@@ -138,11 +159,13 @@ Users are provisioned from the immutable Keycloak `sub`:
 
 `.github/workflows/ci.yml` runs on every push/PR against PostgreSQL 16:
 
-1. `composer validate --strict --no-check-publish`
-2. `php -l` on every tracked PHP file
-3. `vendor/bin/pint --test` (style gate)
-4. `php artisan app:validate-environment` (with dummy Keycloak env)
-5. `php artisan test` against the PostgreSQL service (33 feature/unit tests)
+1. `composer install` and `npm ci` with dependency caching
+2. `npm run build`
+3. `composer validate --strict --no-check-publish` and `php artisan about`
+4. `php -l` on every tracked PHP file and `vendor/bin/pint --test` (style gate)
+5. `php artisan app:validate-environment` (with dummy Keycloak env)
+6. `php artisan migrate:fresh --seed --force` against the PostgreSQL service
+7. `php artisan test` against the PostgreSQL service (36 feature/unit tests)
 
 ## Development
 
