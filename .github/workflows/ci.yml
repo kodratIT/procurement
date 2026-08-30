@@ -25,6 +25,7 @@ jobs:
         with: { node-version: '22', cache: npm }
       - run: composer install --no-interaction --prefer-dist --no-progress
       - run: npm ci
+      - run: git diff --exit-code -- composer.lock package-lock.json
       - run: npm run build
       - run: cp .env.example .env && php artisan key:generate
       - run: composer validate --strict

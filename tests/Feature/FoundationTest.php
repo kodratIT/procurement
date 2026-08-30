@@ -2,9 +2,11 @@
 
 namespace Tests\Feature;
 
+use Illuminate\Contracts\Cache\Repository;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Queue;
+use Mockery;
 use RuntimeException;
 use Tests\TestCase;
 
@@ -53,6 +55,23 @@ class FoundationTest extends TestCase
             ->assertJsonPath('status', 'down')
             ->assertJsonPath('checks.cache', 'down')
             ->assertJsonMissing(['message' => 'cache credentials must not be exposed']);
+    }
+
+    public function test_health_check_returns_unavailable_when_cache_write_fails(): void
+    {
+        $cache = Mockery::mock(Repository::class);
+        $cache->shouldReceive('put')
+            ->once()
+            ->andThrow(new RuntimeException('cache write credentials must not be exposed'));
+        Cache::shouldReceive('store')
+            ->once()
+            ->andReturn($cache);
+
+        $this->getJson('/up')
+            ->assertStatus(503)
+            ->assertJsonPath('status', 'down')
+            ->assertJsonPath('checks.cache', 'down')
+            ->assertJsonMissing(['message' => 'cache write credentials must not be exposed']);
     }
 
     public function test_health_check_returns_unavailable_when_queue_is_down(): void

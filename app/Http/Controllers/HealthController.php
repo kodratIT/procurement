@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Queue;
+use RuntimeException;
 use Throwable;
 
 final class HealthController extends Controller
@@ -19,7 +20,22 @@ final class HealthController extends Controller
 
         foreach ([
             'database' => static fn (): mixed => DB::connection()->select('select 1'),
-            'cache' => static fn (): mixed => Cache::store()->get('__application_health_check__'),
+            'cache' => static function (): bool {
+                $cache = Cache::store();
+                $key = '__application_health_check__';
+
+                $cache->put($key, true, 1);
+
+                try {
+                    if ($cache->get($key) !== true) {
+                        throw new RuntimeException('Cache health check could not be read.');
+                    }
+                } finally {
+                    $cache->forget($key);
+                }
+
+                return true;
+            },
             'queue' => static fn (): mixed => Queue::connection()->size(),
         ] as $name => $check) {
             try {
