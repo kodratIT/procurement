@@ -20,9 +20,10 @@ class KeycloakController extends Controller
         abort_unless(config('keycloak.base_url') && config('keycloak.client_id'), 503, 'Keycloak is not configured.');
 
         $state = Str::random(64);
+        $nonce = Str::random(64);
         $verifier = rtrim(strtr(base64_encode(random_bytes(64)), '+/', '-_'), '=');
         $challenge = rtrim(strtr(base64_encode(hash('sha256', $verifier, true)), '+/', '-_'), '=');
-        $request->session()->put('keycloak.oauth', compact('state', 'verifier'));
+        $request->session()->put('keycloak.oauth', compact('state', 'nonce', 'verifier'));
 
         $query = http_build_query([
             'client_id' => config('keycloak.client_id'),
@@ -30,6 +31,7 @@ class KeycloakController extends Controller
             'response_type' => 'code',
             'scope' => implode(' ', config('keycloak.scopes')),
             'state' => $state,
+            'nonce' => $nonce,
             'code_challenge' => $challenge,
             'code_challenge_method' => 'S256',
         ]);
@@ -62,7 +64,7 @@ class KeycloakController extends Controller
                 'code_verifier' => $oauth['verifier'],
             ]))->throw()->json();
             abort_unless(is_string($token['access_token'] ?? null), 502, 'Keycloak returned an invalid token response.');
-            $this->validateIdToken($token['id_token'] ?? null);
+            $this->validateIdToken($token['id_token'] ?? null, (string) ($oauth['nonce'] ?? ''));
             $claims = Http::withToken($token['access_token'])->timeout(10)->get($base.'/userinfo')->throw()->json();
         } catch (ValidationException $exception) {
             throw $exception;
@@ -98,7 +100,7 @@ class KeycloakController extends Controller
         ]));
     }
 
-    private function validateIdToken(?string $idToken): void
+    private function validateIdToken(?string $idToken, string $expectedNonce): void
     {
         if (! is_string($idToken) || $idToken === '') {
             throw ValidationException::withMessages(['oauth' => 'Keycloak did not return an ID token.']);
@@ -113,7 +115,10 @@ class KeycloakController extends Controller
         $issuer = config('keycloak.issuer') ?: config('keycloak.base_url').'/realms/'.config('keycloak.realm');
         $audience = config('keycloak.audience') ?: config('keycloak.client_id');
         $audiences = is_array($claims['aud'] ?? null) ? $claims['aud'] : [$claims['aud'] ?? null];
-        if (($claims['iss'] ?? null) !== $issuer || ! in_array($audience, $audiences, true)) {
+        if (($claims['iss'] ?? null) !== $issuer
+            || ! in_array($audience, $audiences, true)
+            || $expectedNonce === ''
+            || ! hash_equals($expectedNonce, (string) ($claims['nonce'] ?? ''))) {
             throw ValidationException::withMessages(['oauth' => 'Keycloak token validation failed.']);
         }
     }
