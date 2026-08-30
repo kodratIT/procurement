@@ -5,24 +5,28 @@ namespace App\Providers;
 use App\Models\Activity;
 use App\Models\DepartureBatch;
 use App\Models\Office;
+use App\Models\Pilgrim;
 use App\Models\ProcurementCategory;
 use App\Models\ProcurementField;
 use App\Models\ProcurementItem;
 use App\Models\ProcurementUnit;
 use App\Models\ProcurementVariant;
 use App\Models\Role;
+use App\Models\UmrahBatch;
 use App\Models\UserAssignment;
 use App\Models\Vendor;
 use App\Models\VendorItem;
 use App\Policies\ActivityPolicy;
 use App\Policies\ContextPolicy;
 use App\Policies\OfficePolicy;
+use App\Policies\PilgrimPolicy;
 use App\Policies\ProcurementCategoryPolicy;
 use App\Policies\ProcurementFieldPolicy;
 use App\Policies\ProcurementItemPolicy;
 use App\Policies\ProcurementUnitPolicy;
 use App\Policies\ProcurementVariantPolicy;
 use App\Policies\RolePolicy;
+use App\Policies\UmrahBatchPolicy;
 use App\Policies\UserAssignmentPolicy;
 use App\Policies\VendorItemPolicy;
 use App\Policies\VendorPolicy;
@@ -59,6 +63,8 @@ class AppServiceProvider extends ServiceProvider
         Gate::policy(SpatieRole::class, RolePolicy::class);
         Gate::policy(UserAssignment::class, UserAssignmentPolicy::class);
         Gate::policy(Vendor::class, VendorPolicy::class);
+        Gate::policy(Pilgrim::class, PilgrimPolicy::class);
+        Gate::policy(UmrahBatch::class, UmrahBatchPolicy::class);
         Gate::policy(VendorItem::class, VendorItemPolicy::class);
 
         foreach ([DepartureBatch::class] as $model) {

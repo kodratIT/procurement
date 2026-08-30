@@ -19,8 +19,9 @@ class DatabaseSeeder extends Seeder
             RolePermissionSeeder::class,
             OrganizationSeeder::class,
             ProcurementMasterSeeder::class,
+            UmrahBatchSeeder::class,
+            PilgrimSeeder::class,
         ]);
-
         User::updateOrCreate(
             ['email' => 'test@example.com'],
             ['name' => 'Test User', 'is_active' => true],
