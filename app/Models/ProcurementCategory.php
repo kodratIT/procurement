@@ -21,4 +21,9 @@ class ProcurementCategory extends Model
     {
         return $this->hasMany(ProcurementItem::class, 'category_id');
     }
+
+    public function fields(): HasMany
+    {
+        return $this->hasMany(ProcurementCategoryField::class, 'category_id')->orderBy('sort_order');
+    }
 }
