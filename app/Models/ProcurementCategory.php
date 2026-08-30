@@ -104,6 +104,11 @@ class ProcurementCategory extends Model
         return $this->hasMany(ProcurementItem::class, 'category_id');
     }
 
+    public function fields(): HasMany
+    {
+        return $this->hasMany(ProcurementField::class, 'category_id');
+    }
+
     public function purchaseRequests(): HasMany
     {
         return $this->hasMany(PurchaseRequest::class, 'category_id');

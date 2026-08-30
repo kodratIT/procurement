@@ -143,6 +143,11 @@ class PurchaseRequest extends Model
         return $this->hasMany(PurchaseRequestItem::class)->orderBy('sort_order');
     }
 
+    public function fieldValues(): HasMany
+    {
+        return $this->hasMany(PurchaseRequestFieldValue::class, 'purchase_request_id');
+    }
+
     /**
      * Server-side total: sum of the item line totals.
      * Never trust client-sent totals.

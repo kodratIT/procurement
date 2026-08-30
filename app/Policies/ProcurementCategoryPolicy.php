@@ -48,7 +48,8 @@ final class ProcurementCategoryPolicy
             ProcurementPermissions::MANAGE_MASTER_DATA,
             $category,
         ) && ! $category->purchaseRequests()->exists()
-            && ! $category->items()->exists();
+            && ! $category->items()->exists()
+            && ! $category->fields()->exists();
     }
 
     public function deleteAny(User $user): bool
