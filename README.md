@@ -32,6 +32,27 @@ php artisan app:validate-environment   # fails fast if required env is missing
 php artisan serve                      # Filament panel at http://localhost:8000/admin
 ```
 
+### Laravel and Filament foundation installation
+
+The foundation uses Laravel 13 and the official Filament 5 Panel Builder. The packages and
+exactly-resolved versions are committed in `composer.lock`. To reproduce the installation in a
+fresh checkout, run:
+
+```sh
+composer install
+php artisan filament:install --panels
+```
+
+The installer creates `app/Providers/Filament/AdminPanelProvider.php` and registers it in
+`bootstrap/providers.php`. This repository keeps that provider as the `admin` panel at `/admin`,
+with login enabled and the existing office-scoped resources and authorization plugins preserved.
+Verify the panel foundation with:
+
+```sh
+php artisan about
+php artisan test --filter=FoundationTest
+```
+
 With Docker: `cp .env.example .env`, set `DB_PASSWORD`, then `docker compose up --build`
 (postgres + redis, app on port 8000).
 

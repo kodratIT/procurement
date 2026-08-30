@@ -20,6 +20,10 @@ class FoundationTest extends TestCase
 
     public function test_filament_admin_panel_boots(): void
     {
+        $panel = app('filament')->getPanel('admin');
+
+        $this->assertSame('admin', $panel->getId());
+        $this->assertSame('admin', $panel->getPath());
         $this->get('/admin/login')->assertOk();
     }
 }
