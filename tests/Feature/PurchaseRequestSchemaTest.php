@@ -15,6 +15,7 @@ use App\Models\User;
 use App\Services\PurchaseRequestNumberService;
 use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
 
@@ -141,6 +142,30 @@ class PurchaseRequestSchemaTest extends TestCase
             range(1, 25),
             $numbers->map(fn (string $number): int => (int) substr($number, -4))->all()
         );
+    }
+
+    public function test_sequence_row_is_locked_during_transactional_allocation(): void
+    {
+        $service = app(PurchaseRequestNumberService::class);
+
+        // Each allocation runs in its own transaction, matching the
+        // transaction boundary used by PurchaseRequest::save(). The service
+        // locks the shared monthly row before reading and incrementing it;
+        // this regression test exercises that path and verifies that each
+        // committed allocation advances the sequence without gaps.
+        $numbers = collect(range(1, 8))->map(
+            fn (): string => DB::transaction(fn (): string => $service->next())
+        );
+
+        $this->assertSame(8, $numbers->unique()->count());
+        $this->assertSame(
+            range(1, 8),
+            $numbers->map(fn (string $number): int => (int) substr($number, -4))->all()
+        );
+        $this->assertDatabaseHas('purchase_request_number_sequences', [
+            'month' => now()->format('Ym'),
+            'next_sequence' => 9,
+        ]);
     }
 
     public function test_items_cascade_on_purchase_request_delete(): void

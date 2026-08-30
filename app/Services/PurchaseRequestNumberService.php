@@ -31,8 +31,13 @@ class PurchaseRequestNumberService
                         'updated_at' => now(),
                     ]);
 
+                    // Lock the existing row before reading it. insertOrIgnore
+                    // only guarantees that the row exists; without this lock,
+                    // concurrent transactions can read the same value and
+                    // overwrite each other's increment.
                     $sequence = (int) DB::table('purchase_request_number_sequences')
                         ->where('month', $month)
+                        ->lockForUpdate()
                         ->value('next_sequence');
 
                     if ($sequence < 1 || $sequence > 9999) {
