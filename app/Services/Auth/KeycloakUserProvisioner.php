@@ -5,6 +5,7 @@ namespace App\Services\Auth;
 use App\Models\User;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
+
 use Illuminate\Validation\ValidationException;
 
 class KeycloakUserProvisioner
@@ -50,6 +51,7 @@ class KeycloakUserProvisioner
             }
 
             try {
+                $wasCreated = $user === null;
                 $user ??= new User(['keycloak_sub' => $sub]);
                 $user->fill([
                     'name' => $name,
@@ -57,6 +59,14 @@ class KeycloakUserProvisioner
                     'email_verified_at' => now(),
                 ]);
                 $user->save();
+                DB::table(config('activitylog.table_name', 'activity_log'))->insert([
+                    'log_name' => 'keycloak',
+                    'event' => $wasCreated ? 'keycloak.user_provisioned' : 'keycloak.user_synchronised',
+                    'description' => 'Keycloak user provisioning completed.',
+                    'properties' => json_encode(['user_id' => $user->getKey()], JSON_THROW_ON_ERROR),
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
             } catch (QueryException $exception) {
                 if ($exception->getCode() === '23000' || str_contains(strtolower($exception->getMessage()), 'unique')) {
                     throw ValidationException::withMessages([

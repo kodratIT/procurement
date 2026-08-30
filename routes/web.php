@@ -8,6 +8,7 @@ Route::get('/', fn () => view('welcome'));
 Route::middleware('guest')->group(function () {
     Route::get('/auth/keycloak/redirect', [KeycloakController::class, 'redirect'])->name('keycloak.redirect');
     Route::get('/auth/keycloak/callback', [KeycloakController::class, 'callback'])->name('keycloak.callback');
+    Route::get('/auth/keycloak/forbidden', [KeycloakController::class, 'forbidden'])->name('keycloak.forbidden');
 });
 Route::post('/logout', [KeycloakController::class, 'logout'])->middleware('auth')->name('logout');
 Route::post('/office/switch', [OfficeContextController::class, 'switch'])

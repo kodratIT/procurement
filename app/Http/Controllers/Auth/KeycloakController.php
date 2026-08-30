@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Services\Auth\KeycloakUserProvisioner;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -79,11 +80,35 @@ class KeycloakController extends Controller
         $user = $provisioner->provision($claims);
         if (! $user->hasActiveAssignment()) {
             Auth::logout();
-            throw ValidationException::withMessages(['email' => 'Your account has no active office assignment. Contact an administrator.']);
+            DB::table(config('activitylog.table_name', 'activity_log'))->insert([
+                'log_name' => 'keycloak',
+                'event' => 'keycloak.sign_in_denied',
+                'description' => 'Keycloak sign-in denied.',
+                'causer_type' => $user::class,
+                'causer_id' => $user->getKey(),
+                'properties' => json_encode(['reason' => 'no_active_assignment'], JSON_THROW_ON_ERROR),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+            return redirect()->route('keycloak.forbidden');
         }
         Auth::login($user, remember: false);
+        DB::table(config('activitylog.table_name', 'activity_log'))->insert([
+            'log_name' => 'keycloak',
+            'event' => 'keycloak.sign_in_succeeded',
+            'description' => 'Keycloak sign-in succeeded.',
+            'causer_type' => $user::class,
+            'causer_id' => $user->getKey(),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
 
         return redirect()->intended('/admin');
+    }
+
+    public function forbidden(): \Illuminate\Contracts\View\View
+    {
+        return view('errors.403');
     }
 
     public function logout(Request $request): RedirectResponse

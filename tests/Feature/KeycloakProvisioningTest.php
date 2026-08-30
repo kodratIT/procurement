@@ -69,6 +69,24 @@ class KeycloakProvisioningTest extends TestCase
         $this->assertFalse($user->canAccessPanel(app('filament')->getPanel('admin')));
     }
 
+    public function test_existing_session_is_denied_after_assignment_is_deactivated(): void
+    {
+        $user = User::factory()->create(['keycloak_sub' => 'immutable-sub-1']);
+        $office = Office::factory()->create(['is_active' => true, 'disabled_at' => null]);
+        $assignment = UserAssignment::factory()->create([
+            'user_id' => $user->id,
+            'office_id' => $office->id,
+            'valid_from' => Carbon::yesterday(),
+            'is_active' => true,
+        ]);
+
+        $this->actingAs($user)->get('/admin')->assertOk();
+        $assignment->update(['is_active' => false]);
+
+        $this->actingAs($user)->get('/admin')->assertForbidden()->assertSee('Access restricted');
+    }
+
+
     public function test_keycloak_subject_is_immutable_after_first_provisioning(): void
     {
         $user = User::factory()->create(['keycloak_sub' => 'immutable-sub-1']);
