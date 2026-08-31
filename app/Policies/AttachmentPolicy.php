@@ -9,6 +9,8 @@ use App\Models\Invoice;
 use App\Models\Payment;
 use App\Models\PilgrimDistributionItem;
 use App\Models\PurchaseOrder;
+use App\Models\SampleShipment;
+use App\Models\SampleShipmentReceipt;
 use App\Models\User;
 use App\Services\MultiOfficeAuthorization;
 use App\Support\ProcurementPermissions;
@@ -32,6 +34,17 @@ final class AttachmentPolicy
         }
         if ($subject instanceof PurchaseOrder) {
             return $this->authorization->allows($user, ProcurementPermissions::VIEW, $subject);
+        }
+        if ($subject instanceof SampleShipment) {
+            return $this->authorization->allows($user, ProcurementPermissions::VIEW, $subject)
+                || $this->authorization->allows($user, ProcurementPermissions::VIEW, ['office_id' => $subject->receiver_office_id]);
+        }
+        if ($subject instanceof SampleShipmentReceipt) {
+            $subject->loadMissing('shipment');
+
+            return $subject->shipment instanceof SampleShipment
+                && ($this->authorization->allows($user, ProcurementPermissions::VIEW, $subject->shipment)
+                    || $this->authorization->allows($user, ProcurementPermissions::VIEW, ['office_id' => $subject->shipment->receiver_office_id]));
         }
         if ($subject instanceof PilgrimDistributionItem) {
             $subject->loadMissing('distributionItem.distribution.batch');
