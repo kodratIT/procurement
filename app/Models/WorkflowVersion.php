@@ -56,11 +56,6 @@ class WorkflowVersion extends Model
         return $this->hasMany(WorkflowStep::class)->orderBy('sequence');
     }
 
-    public function bindings(): HasMany
-    {
-        return $this->workflow()->getQuery()->whereKey($this->workflow_id)->bindings();
-    }
-
     public function approvalInstances(): HasMany
     {
         return $this->hasMany(ApprovalInstance::class);
