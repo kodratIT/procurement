@@ -13,7 +13,7 @@ use InvalidArgumentException;
 final class ApprovalInstanceCreator
 {
     /**
-     * @param  array{reference: string, version?: int, context?: array<string, mixed>, steps: list<array<string, mixed>>}  $resolution
+     * @param  array{reference: string, version?: int, workflow_version_id?: int|null, context?: array<string, mixed>, steps: list<array<string, mixed>>}  $resolution
      */
     public function create(PurchaseRequest $request, User $submitter, array $resolution): ApprovalInstance
     {
@@ -25,6 +25,7 @@ final class ApprovalInstanceCreator
 
         $instance = ApprovalInstance::create([
             'purchase_request_id' => $request->getKey(),
+            'workflow_version_id' => $resolution['workflow_version_id'] ?? null,
             'workflow_reference' => $resolution['reference'],
             'workflow_version' => (int) ($resolution['version'] ?? 1),
             'status' => 'pending',

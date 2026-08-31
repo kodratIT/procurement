@@ -51,6 +51,11 @@ class Office extends Model
         return $this->hasMany(UserAssignment::class);
     }
 
+    public function approverMappings(): HasMany
+    {
+        return $this->hasMany(ApproverMapping::class);
+    }
+
     public function branches(): HasMany
     {
         return $this->hasMany(Branch::class);

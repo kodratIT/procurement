@@ -37,6 +37,11 @@ class Role extends SpatieRole
         return $this->hasMany(UserAssignment::class);
     }
 
+    public function approverMappings(): HasMany
+    {
+        return $this->hasMany(ApproverMapping::class);
+    }
+
     public function getActivitylogOptions(): LogOptions
     {
         return LogOptions::defaults()

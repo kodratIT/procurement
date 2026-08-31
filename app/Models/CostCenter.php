@@ -47,6 +47,11 @@ class CostCenter extends Model
         return $this->hasMany(UserAssignment::class);
     }
 
+    public function approverMappings(): HasMany
+    {
+        return $this->hasMany(ApproverMapping::class);
+    }
+
     public function purchaseRequests(): HasMany
     {
         return $this->hasMany(PurchaseRequest::class);

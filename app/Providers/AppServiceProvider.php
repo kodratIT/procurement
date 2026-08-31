@@ -3,6 +3,8 @@
 namespace App\Providers;
 
 use App\Models\Activity;
+use App\Models\ApproverDelegation;
+use App\Models\ApproverMapping;
 use App\Models\DepartureBatch;
 use App\Models\Office;
 use App\Models\Pilgrim;
@@ -19,6 +21,8 @@ use App\Models\UserAssignment;
 use App\Models\Vendor;
 use App\Models\VendorItem;
 use App\Policies\ActivityPolicy;
+use App\Policies\ApproverDelegationPolicy;
+use App\Policies\ApproverMappingPolicy;
 use App\Policies\ContextPolicy;
 use App\Policies\OfficePolicy;
 use App\Policies\PilgrimPolicy;
@@ -62,6 +66,8 @@ class AppServiceProvider extends ServiceProvider
         Gate::policy(ProcurementItem::class, ProcurementItemPolicy::class);
         Gate::policy(ProcurementUnit::class, ProcurementUnitPolicy::class);
         Gate::policy(ProcurementVariant::class, ProcurementVariantPolicy::class);
+        Gate::policy(ApproverMapping::class, ApproverMappingPolicy::class);
+        Gate::policy(ApproverDelegation::class, ApproverDelegationPolicy::class);
         Gate::policy(Office::class, OfficePolicy::class);
         Gate::policy(Role::class, RolePolicy::class);
         Gate::policy(SpatieRole::class, RolePolicy::class);

@@ -49,6 +49,21 @@ class User extends Authenticatable implements FilamentUser
         return $this->hasMany(UserAssignment::class);
     }
 
+    public function approverMappings(): HasMany
+    {
+        return $this->hasMany(ApproverMapping::class);
+    }
+
+    public function delegationsGiven(): HasMany
+    {
+        return $this->hasMany(ApproverDelegation::class, 'delegator_id');
+    }
+
+    public function delegationsReceived(): HasMany
+    {
+        return $this->hasMany(ApproverDelegation::class, 'delegate_id');
+    }
+
     protected static function booted(): void
     {
         static::updating(function (self $user): void {

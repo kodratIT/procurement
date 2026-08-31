@@ -46,4 +46,9 @@ class WorkflowStep extends Model
     {
         return $this->hasMany(WorkflowCondition::class);
     }
+
+    public function approverMappings(): HasMany
+    {
+        return $this->hasMany(ApproverMapping::class, 'workflow_step_id');
+    }
 }
