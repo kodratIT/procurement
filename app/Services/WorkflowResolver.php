@@ -603,7 +603,7 @@ class WorkflowResolver
 
     private function budgetOwnerOfficeId(PurchaseRequest $request): int|string|null
     {
-        return $request->getAttribute('budget_owner_office_id') ?? $request->costCenter?->office_id;
+        return app(BudgetReservationService::class)->resolveBudgetOwnerOfficeId($request);
     }
 
     private function resolutionDate(array $settings): Carbon

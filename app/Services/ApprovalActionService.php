@@ -30,6 +30,7 @@ final class ApprovalActionService
         private readonly PurchaseRequestTimeline $timeline,
         private readonly ApprovalTaskLifecycleService $tasks,
         private readonly ?BudgetCheck $budgetCheck = null,
+        private readonly ?BudgetReservationService $budgetReservations = null,
     ) {}
 
     public function approve(
@@ -308,6 +309,11 @@ final class ApprovalActionService
             'updated_at' => now(),
         ]);
         $request->status = $requestStatus;
+        if ($requestStatus === PurchaseRequest::STATUS_APPROVED
+            && $request->cost_center_id !== null
+            && $this->budgetReservations instanceof BudgetReservationService) {
+            $this->budgetReservations->reserve($request, actor: $actor);
+        }
         $this->timeline->record(
             $request,
             $actor,

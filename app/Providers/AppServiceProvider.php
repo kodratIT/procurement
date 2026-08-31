@@ -2,10 +2,12 @@
 
 namespace App\Providers;
 
+use App\Contracts\BudgetCheck;
 use App\Models\Activity;
 use App\Models\ApprovalInstanceStep;
 use App\Models\ApproverDelegation;
 use App\Models\ApproverMapping;
+use App\Models\Budget;
 use App\Models\DepartureBatch;
 use App\Models\Office;
 use App\Models\Pilgrim;
@@ -25,6 +27,7 @@ use App\Policies\ActivityPolicy;
 use App\Policies\ApprovalInstanceStepPolicy;
 use App\Policies\ApproverDelegationPolicy;
 use App\Policies\ApproverMappingPolicy;
+use App\Policies\BudgetPolicy;
 use App\Policies\ContextPolicy;
 use App\Policies\OfficePolicy;
 use App\Policies\PilgrimPolicy;
@@ -41,6 +44,7 @@ use App\Policies\UserAssignmentPolicy;
 use App\Policies\VendorItemPolicy;
 use App\Policies\VendorPolicy;
 use App\Services\AccessContextService;
+use App\Services\BudgetReservationService;
 use App\Services\MultiOfficeAuthorization;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
@@ -55,6 +59,7 @@ class AppServiceProvider extends ServiceProvider
     {
         $this->app->scoped(AccessContextService::class);
         $this->app->scoped(MultiOfficeAuthorization::class);
+        $this->app->scoped(BudgetCheck::class, fn ($app): BudgetReservationService => $app->make(BudgetReservationService::class));
     }
 
     /**
@@ -66,6 +71,7 @@ class AppServiceProvider extends ServiceProvider
         Gate::policy(Activity::class, ActivityPolicy::class);
         Gate::policy(ProcurementField::class, ProcurementFieldPolicy::class);
         Gate::policy(ProcurementCategory::class, ProcurementCategoryPolicy::class);
+        Gate::policy(Budget::class, BudgetPolicy::class);
         Gate::policy(ProcurementItem::class, ProcurementItemPolicy::class);
         Gate::policy(ProcurementUnit::class, ProcurementUnitPolicy::class);
         Gate::policy(ProcurementVariant::class, ProcurementVariantPolicy::class);
