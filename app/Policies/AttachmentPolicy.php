@@ -6,6 +6,7 @@ namespace App\Policies;
 
 use App\Models\Attachment;
 use App\Models\Invoice;
+use App\Models\Payment;
 use App\Models\PurchaseOrder;
 use App\Models\User;
 use App\Services\MultiOfficeAuthorization;
@@ -21,6 +22,12 @@ final class AttachmentPolicy
         $subject = $attachment->attachable;
         if ($subject instanceof Invoice) {
             return $this->authorization->allows($user, ProcurementPermissions::VIEW, $subject);
+        }
+        if ($subject instanceof Payment) {
+            $subject->loadMissing('invoice');
+
+            return $subject->invoice instanceof Invoice
+                && $this->authorization->allows($user, ProcurementPermissions::VIEW, $subject->invoice);
         }
         if ($subject instanceof PurchaseOrder) {
             return $this->authorization->allows($user, ProcurementPermissions::VIEW, $subject);

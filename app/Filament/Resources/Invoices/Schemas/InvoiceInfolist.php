@@ -22,9 +22,19 @@ final class InvoiceInfolist
                     TextEntry::make('purchaseOrder.po_number')->label('Purchase order'),
                     TextEntry::make('vendor.name')->label('Vendor'),
                     TextEntry::make('total_amount')->label('Total')->money('IDR'),
+                    TextEntry::make('payment_total')
+                        ->label('Paid to date')
+                        ->money('IDR')
+                        ->state(fn (Invoice $record): string => $record->paymentTotal()),
+                    TextEntry::make('outstanding_amount')
+                        ->label('Outstanding balance')
+                        ->money('IDR')
+                        ->state(fn (Invoice $record): string => $record->outstandingAmount()),
                     TextEntry::make('due_date')->label('Due date')->date(),
-                    TextEntry::make('status')->label('Payment status')->badge(),
-                    TextEntry::make('review_status')->label('Review status')->badge(),
+                    TextEntry::make('status')
+                        ->label('Payment status')
+                        ->badge()
+                        ->state(fn (Invoice $record): string => $record->paymentStatus()),
                     TextEntry::make('match_status')->label('Match status')->badge(),
                     TextEntry::make('mismatch_reason')->label('Mismatch explanation')->placeholder('No mismatch'),
                 ])->columns(3),

@@ -70,6 +70,7 @@ final class InvoiceResource extends Resource
                 'vendor',
                 'items.purchaseOrderItem',
                 'payments',
+                'payments.attachments',
                 'attachments',
             ]),
             $user,

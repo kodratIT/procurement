@@ -168,6 +168,13 @@ final class Invoice extends Model
         return bcadd((string) $this->payments()->sum('amount'), '0.00', 2);
     }
 
+    public function outstandingAmount(): string
+    {
+        $outstanding = bcsub((string) $this->total_amount, $this->paymentTotal(), 2);
+
+        return bccomp($outstanding, '0.00', 2) > 0 ? $outstanding : '0.00';
+    }
+
     public function paymentStatus(): string
     {
         $paid = $this->paymentTotal();

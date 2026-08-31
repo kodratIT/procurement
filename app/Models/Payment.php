@@ -8,6 +8,7 @@ use Database\Factories\PaymentFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Validation\ValidationException;
 use LogicException;
 
@@ -36,10 +37,6 @@ final class Payment extends Model
             }
         });
 
-        self::created(function (self $payment): void {
-            $payment->invoice?->syncPaymentStatus();
-        });
-
         self::updating(function (): never {
             throw new LogicException('Payment history is immutable.');
         });
@@ -62,6 +59,11 @@ final class Payment extends Model
     public function invoice(): BelongsTo
     {
         return $this->belongsTo(Invoice::class);
+    }
+
+    public function attachments(): MorphMany
+    {
+        return $this->morphMany(Attachment::class, 'attachable');
     }
 
     public function recordedBy(): BelongsTo

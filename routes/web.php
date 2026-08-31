@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\AttachmentDownloadController;
 use App\Http\Controllers\Auth\KeycloakController;
 use App\Http\Controllers\HealthController;
 use App\Http\Controllers\OfficeContextController;
@@ -35,3 +36,5 @@ Route::post('/office/switch', [OfficeContextController::class, 'switch'])
     ->middleware(['auth', 'active.office'])->name('office.switch');
 Route::post('/office/confirm-mutation', [OfficeContextController::class, 'confirmMutation'])
     ->middleware(['auth', 'active.office'])->name('office.confirm-mutation');
+Route::get('/attachments/{attachment}/download', AttachmentDownloadController::class)
+    ->middleware('auth')->name('attachments.download');

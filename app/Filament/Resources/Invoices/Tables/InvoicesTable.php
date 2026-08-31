@@ -21,8 +21,19 @@ final class InvoicesTable
                 TextColumn::make('purchaseOrder.po_number')->label('PO')->searchable(),
                 TextColumn::make('vendor.name')->label('Vendor')->searchable(),
                 TextColumn::make('total_amount')->label('Total')->money('IDR')->sortable(),
-                TextColumn::make('due_date')->label('Due date')->date()->sortable(),
-                TextColumn::make('status')->label('Payment')->badge()->sortable(),
+                TextColumn::make('payment_total')
+                    ->label('Paid')
+                    ->money('IDR')
+                    ->state(fn (Invoice $record): string => $record->paymentTotal()),
+                TextColumn::make('outstanding_amount')
+                    ->label('Outstanding')
+                    ->money('IDR')
+                    ->state(fn (Invoice $record): string => $record->outstandingAmount()),
+                TextColumn::make('status')
+                    ->label('Payment')
+                    ->badge()
+                    ->state(fn (Invoice $record): string => $record->paymentStatus())
+                    ->sortable(),
                 TextColumn::make('match_status')->label('Match')->badge()->sortable(),
                 TextColumn::make('review_status')->label('Review')->badge()->sortable(),
             ])
