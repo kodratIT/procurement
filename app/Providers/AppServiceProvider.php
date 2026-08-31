@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use App\Models\Activity;
+use App\Models\ApprovalInstanceStep;
 use App\Models\ApproverDelegation;
 use App\Models\ApproverMapping;
 use App\Models\DepartureBatch;
@@ -21,6 +22,7 @@ use App\Models\UserAssignment;
 use App\Models\Vendor;
 use App\Models\VendorItem;
 use App\Policies\ActivityPolicy;
+use App\Policies\ApprovalInstanceStepPolicy;
 use App\Policies\ApproverDelegationPolicy;
 use App\Policies\ApproverMappingPolicy;
 use App\Policies\ContextPolicy;
@@ -60,6 +62,7 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        Gate::policy(ApprovalInstanceStep::class, ApprovalInstanceStepPolicy::class);
         Gate::policy(Activity::class, ActivityPolicy::class);
         Gate::policy(ProcurementField::class, ProcurementFieldPolicy::class);
         Gate::policy(ProcurementCategory::class, ProcurementCategoryPolicy::class);

@@ -7,6 +7,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Validation\ValidationException;
 
 class ApprovalInstanceStep extends Model
@@ -19,7 +20,13 @@ class ApprovalInstanceStep extends Model
         'step_key',
         'label',
         'resolver_type',
+        'approval_mode',
+        'step_type',
+        'is_required',
+        'sla_minutes',
+        'escalation_type',
         'approver_id',
+        'original_approver_id',
         'approver_name',
         'approver_role',
         'office_id',
@@ -30,7 +37,19 @@ class ApprovalInstanceStep extends Model
         'note',
         'acted_by_id',
         'acted_at',
+        'assigned_at',
+        'due_at',
+        'sla_warning_at',
+        'sla_warning_sent_at',
+        'expired_at',
+        'escalated_at',
+        'completed_at',
         'context',
+    ];
+
+    protected $attributes = [
+        'approval_mode' => 'sequential',
+        'is_required' => true,
     ];
 
     protected static function booted(): void
@@ -42,7 +61,13 @@ class ApprovalInstanceStep extends Model
                 'step_key',
                 'label',
                 'resolver_type',
+                'approval_mode',
+                'step_type',
+                'is_required',
+                'sla_minutes',
+                'escalation_type',
                 'approver_id',
+                'original_approver_id',
                 'approver_name',
                 'approver_role',
                 'office_id',
@@ -69,13 +94,23 @@ class ApprovalInstanceStep extends Model
             'approval_instance_id' => 'integer',
             'step_order' => 'integer',
             'approver_id' => 'integer',
+            'original_approver_id' => 'integer',
             'office_id' => 'integer',
             'branch_id' => 'integer',
             'department_id' => 'integer',
+            'is_required' => 'boolean',
+            'sla_minutes' => 'integer',
             'approver_name' => 'string',
             'approver_role' => 'string',
             'acted_by_id' => 'integer',
             'acted_at' => 'datetime',
+            'assigned_at' => 'datetime',
+            'due_at' => 'datetime',
+            'sla_warning_at' => 'datetime',
+            'sla_warning_sent_at' => 'datetime',
+            'expired_at' => 'datetime',
+            'escalated_at' => 'datetime',
+            'completed_at' => 'datetime',
             'context' => 'array',
         ];
     }
@@ -93,5 +128,10 @@ class ApprovalInstanceStep extends Model
     public function actedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'acted_by_id');
+    }
+
+    public function histories(): HasMany
+    {
+        return $this->hasMany(ApprovalHistory::class);
     }
 }

@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 use Illuminate\Validation\ValidationException;
 
 class ApprovalInstance extends Model
@@ -102,5 +103,15 @@ class ApprovalInstance extends Model
     public function steps(): HasMany
     {
         return $this->hasMany(ApprovalInstanceStep::class)->orderBy('step_order')->orderBy('id');
+    }
+
+    public function isActive(): bool
+    {
+        return in_array($this->status, ['pending', 'in_progress'], true);
+    }
+
+    public function histories(): HasManyThrough
+    {
+        return $this->hasManyThrough(ApprovalHistory::class, ApprovalInstanceStep::class);
     }
 }

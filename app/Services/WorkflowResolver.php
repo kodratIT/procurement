@@ -224,9 +224,13 @@ class WorkflowResolver
             'approval_mode' => $step->approval_mode?->value ?? (string) $step->approval_mode,
             'resolver_type' => $resolverType,
             'is_required' => (bool) $step->is_required,
+            'sla_minutes' => $step->sla_minutes,
+            'escalation_type' => $step->escalation_type,
+            'settings' => $settings,
             'applicable' => true,
             'conditions' => $conditions,
             'approver_id' => $user->getKey(),
+            'original_approver_id' => $selected['delegated_from_user_id'] ?? $user->getKey(),
             'user_id' => $user->getKey(),
             'user' => [
                 'id' => $user->getKey(),
@@ -248,11 +252,11 @@ class WorkflowResolver
                 'office_id' => $assignment->office_id,
                 'branch_id' => $assignment->branch_id,
                 'department_id' => $assignment->department_id,
-                'cost_center_id' => $assignment->cost_center_id,
                 'scope_source' => $scopeSource,
                 'fallback_result' => $fallbackResult,
                 'delegation_id' => $selected['delegation_id'],
                 'delegated_from_user_id' => $selected['delegated_from_user_id'],
+                'allow_self_approval' => $allowSelfApproval,
                 'conditions' => $conditions,
             ],
             'scope_source' => $scopeSource,
@@ -267,6 +271,9 @@ class WorkflowResolver
     {
         $settings = is_array($step->settings) ? $step->settings : [];
         $conditions = $this->conditionSnapshot($step);
+        $reason = $conditions === []
+            ? 'Step condition did not match the purchase request.'
+            : 'Step skipped because configured conditions did not match the purchase request.';
 
         return [
             'step_order' => (int) $step->sequence,
@@ -279,11 +286,15 @@ class WorkflowResolver
             'applicable' => false,
             'conditions' => $conditions,
             'status' => 'skipped',
+            'skip_reason' => $reason,
             'approver_id' => null,
             'approver_name' => null,
             'approver_role' => null,
             'scope_source' => null,
-            'context' => ['conditions' => $conditions],
+            'context' => [
+                'conditions' => $conditions,
+                'skip_reason' => $reason,
+            ],
         ];
     }
 
