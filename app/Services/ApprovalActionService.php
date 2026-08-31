@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Contracts\BudgetCheck;
 use App\Models\ApprovalHistory;
 use App\Models\ApprovalInstance;
 use App\Models\ApprovalInstanceStep;
@@ -28,6 +29,7 @@ final class ApprovalActionService
         private readonly DomainTransaction $transaction,
         private readonly PurchaseRequestTimeline $timeline,
         private readonly ApprovalTaskLifecycleService $tasks,
+        private readonly ?BudgetCheck $budgetCheck = null,
     ) {}
 
     public function approve(
@@ -91,6 +93,13 @@ final class ApprovalActionService
             ]);
         }
         $this->authorizeActor($step, $actor);
+
+        if ($action === 'approve') {
+            $step->load([
+                'approvalInstance.purchaseRequest' => fn ($query) => $query->withoutGlobalScopes(),
+            ]);
+            $this->assertBudgetCheckPassed($step, $step->approvalInstance->purchaseRequest);
+        }
 
         return $this->transaction->run(
             'record approval decision',
@@ -338,10 +347,30 @@ final class ApprovalActionService
             'device' => $metadata['device'] ?? (app()->bound('request') ? request()->userAgent() : null),
             'context' => [
                 ...$metadata,
+                'permission' => ProcurementPermissions::APPROVE,
+                'scope' => [
+                    'office_id' => $assignment?->office_id ?? $step->office_id,
+                    'branch_id' => $assignment?->branch_id ?? $step->branch_id,
+                    'department_id' => $assignment?->department_id ?? $step->department_id,
+                ],
                 'actor_role' => $assignment?->assignedRole?->name ?? $step->approver_role,
                 'delegated' => $this->isDelegated($step, $actor),
             ],
         ]);
+    }
+
+    private function assertBudgetCheckPassed(ApprovalInstanceStep $step, PurchaseRequest $request): void
+    {
+        $budgetCheck = data_get($step->context, 'workflow_settings.budget_check', data_get($step->context, 'budget_check', []));
+        if (! is_array($budgetCheck) || ! (bool) ($budgetCheck['required'] ?? false)) {
+            return;
+        }
+
+        if (! $this->budgetCheck instanceof BudgetCheck || ! $this->budgetCheck->check($request)) {
+            throw ValidationException::withMessages([
+                'budget' => 'The required budget check must pass before final approval.',
+            ]);
+        }
     }
 
     private function authorizeActor(ApprovalInstanceStep $step, User $actor): void
@@ -416,9 +445,9 @@ final class ApprovalActionService
             throw ValidationException::withMessages(['action' => 'The approval action is invalid.']);
         }
 
-        if (in_array($action, ['reject', 'return'], true) && blank($notes)) {
+        if (blank($notes)) {
             throw ValidationException::withMessages([
-                'notes' => 'Notes are required when rejecting or returning a purchase request.',
+                'notes' => 'Notes are required for every approval decision.',
             ]);
         }
     }

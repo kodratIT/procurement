@@ -67,10 +67,55 @@ final class ApprovalInboxResource extends Resource
                 })->columnSpanFull(),
                 TextEntry::make('approvalInstance.purchaseRequest.attachments')->label('Lampiran')->state(function (ApprovalInstanceStep $record): string {
                     return $record->approvalInstance?->purchaseRequest?->attachments
-                        ->map(fn ($attachment): string => $attachment->file_name ?? $attachment->path)
+                        ->map(fn ($attachment): string => $attachment->original_name ?? $attachment->path)
                         ->implode('; ') ?? '-';
                 })->columnSpanFull(),
             ])->columns(3),
+            Section::make('Finance evidence')->schema([
+                TextEntry::make('approvalInstance.purchaseRequest.quotations')->label('Quotation')->state(function (ApprovalInstanceStep $record): string {
+                    return $record->approvalInstance?->purchaseRequest?->quotations
+                        ->map(fn ($quotation): string => sprintf(
+                            '%s — %s — %s',
+                            $quotation->vendor?->name ?? 'Vendor',
+                            $quotation->total_amount,
+                            $quotation->notes ?: '-',
+                        ))
+                        ->implode("\n") ?: 'Belum ada quotation.';
+                })->columnSpanFull(),
+                TextEntry::make('approvalInstance.purchaseRequest.quotationRecommendations')->label('Rekomendasi')->state(function (ApprovalInstanceStep $record): string {
+                    return $record->approvalInstance?->purchaseRequest?->quotationRecommendations
+                        ->map(fn ($recommendation): string => sprintf(
+                            '%s — %s',
+                            $recommendation->vendor?->name ?? 'Vendor',
+                            $recommendation->reason,
+                        ))
+                        ->implode("\n") ?: 'Belum ada rekomendasi.';
+                })->columnSpanFull(),
+                TextEntry::make('approvalInstance.purchaseRequest.statusHistories')->label('Perubahan PR')->state(function (ApprovalInstanceStep $record): string {
+                    return $record->approvalInstance?->purchaseRequest?->statusHistories
+                        ->map(fn ($history): string => sprintf(
+                            '%s — %s — %s',
+                            $history->created_at?->format('Y-m-d H:i:s'),
+                            $history->event,
+                            $history->note ?: $history->decision ?: '-',
+                        ))
+                        ->implode("\n") ?: 'Belum ada perubahan.';
+                })->columnSpanFull(),
+                TextEntry::make('budget_context')->label('Konteks budget')->state(function (ApprovalInstanceStep $record): string {
+                    $request = $record->approvalInstance?->purchaseRequest;
+                    $required = (bool) data_get($record->context, 'workflow_settings.budget_check.required', false);
+
+                    return sprintf(
+                        'Pemilik: %s — Nominal: %s — Pemeriksaan wajib: %s',
+                        $request?->costCenter?->office?->name ?? $request?->office?->name ?? '-',
+                        $request?->total_amount ?? '0.00',
+                        $required ? 'Ya' : 'Tidak',
+                    );
+                })->columnSpanFull(),
+                TextEntry::make('workflow_snapshot')->label('Snapshot workflow')->state(function (ApprovalInstanceStep $record): string {
+                    return json_encode(data_get($record->approvalInstance?->context, 'workflow_snapshot', []), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?: '{}';
+                })->columnSpanFull(),
+            ])->columns(2),
             Section::make('Approval history')->schema([
                 TextEntry::make('approvalInstance.histories')->label('Riwayat keputusan')->state(function (ApprovalInstanceStep $record): string {
                     return $record->approvalInstance?->histories
@@ -101,8 +146,9 @@ final class ApprovalInboxResource extends Resource
                     ->label('Approve')
                     ->color('success')
                     ->requiresConfirmation()
+                    ->schema([Textarea::make('notes')->label('Catatan')->required()])
                     ->authorize(fn (ApprovalInstanceStep $record): bool => Gate::forUser(auth()->user())->allows('view', $record))
-                    ->action(fn (ApprovalInstanceStep $record): ApprovalInstanceStep => app(ApprovalActionService::class)->approve($record)),
+                    ->action(fn (ApprovalInstanceStep $record, array $data): ApprovalInstanceStep => app(ApprovalActionService::class)->approve($record, auth()->user(), (string) $data['notes'])),
                 Action::make('reject')
                     ->label('Reject')
                     ->color('danger')

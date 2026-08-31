@@ -23,11 +23,13 @@ class ProcurementRolesSeeder extends Seeder
             ProcurementPermissions::VIEW,
             ProcurementPermissions::CREATE,
             ProcurementPermissions::UPDATE,
+            ProcurementPermissions::APPROVE,
             ProcurementPermissions::MANAGE_MASTER_DATA,
         ],
         'Keuangan' => [
             ProcurementPermissions::VIEW,
             ProcurementPermissions::MANAGE_FINANCE,
+            ProcurementPermissions::APPROVE,
             ProcurementPermissions::EXPORT,
         ],
         'Manager' => [

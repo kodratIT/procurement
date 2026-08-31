@@ -19,6 +19,7 @@ class DatabaseSeeder extends Seeder
             RolePermissionSeeder::class,
             OrganizationSeeder::class,
             ProcurementMasterSeeder::class,
+            StandardWorkflowSeeder::class,
             UmrahBatchSeeder::class,
             PilgrimSeeder::class,
         ]);

@@ -31,8 +31,13 @@ final class ApprovalTaskLifecycleService
                 'approvalInstance.purchaseRequest.office',
                 'approvalInstance.purchaseRequest.branch',
                 'approvalInstance.purchaseRequest.department',
+                'approvalInstance.purchaseRequest.costCenter.office',
                 'approvalInstance.purchaseRequest.items',
+                'approvalInstance.purchaseRequest.quotations.vendor',
+                'approvalInstance.purchaseRequest.quotationRecommendations.vendor',
                 'approvalInstance.purchaseRequest.attachments',
+                'approvalInstance.purchaseRequest.statusHistories.actor',
+                'approvalInstance.histories.actor',
                 'histories.actor',
             ])
             ->where('status', 'pending')
