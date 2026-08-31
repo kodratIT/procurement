@@ -99,7 +99,16 @@ final class WorkflowBindingSelector
                 return false;
             }
             foreach ($binding->conditions ?? [] as $field => $expected) {
-                if (($context[$field] ?? null) != $expected) {
+                $actual = $context[$field] ?? null;
+                if (is_array($expected)) {
+                    if (count($expected) === 2 && is_numeric($expected[0]) && is_numeric($expected[1])) {
+                        if (! is_numeric($actual) || (float) $actual < (float) $expected[0] || (float) $actual > (float) $expected[1]) {
+                            return false;
+                        }
+                    } elseif (! in_array($actual, $expected, true)) {
+                        return false;
+                    }
+                } elseif ($actual != $expected) {
                     return false;
                 }
             }
@@ -127,7 +136,23 @@ final class WorkflowBindingSelector
     private function conditionsOverlap(array $left, array $right): bool
     {
         foreach ($left as $field => $value) {
-            if (array_key_exists($field, $right) && $right[$field] !== $value) {
+            if (! array_key_exists($field, $right)) {
+                continue;
+            }
+            $other = $right[$field];
+            if (is_array($value) && is_array($other)) {
+                if (count($value) === 2 && count($other) === 2 && is_numeric($value[0]) && is_numeric($value[1]) && is_numeric($other[0]) && is_numeric($other[1])) {
+                    if (max((float) $value[0], (float) $other[0]) > min((float) $value[1], (float) $other[1])) {
+                        return false;
+                    }
+                } elseif (array_intersect($value, $other) === []) {
+                    return false;
+                }
+            } elseif (
+                is_array($value)
+                    ? ! in_array($other, $value, true)
+                    : (is_array($other) ? ! in_array($value, $other, true) : $value != $other)
+            ) {
                 return false;
             }
         }
@@ -139,11 +164,11 @@ final class WorkflowBindingSelector
     private function validateConditions(array $conditions): void
     {
         foreach ($conditions as $field => $value) {
-            if ($field === '' || ! is_string($field)) {
+            if (! is_string($field) || $field === '') {
                 throw ValidationException::withMessages(['conditions' => 'Workflow condition fields must be non-empty strings.']);
             }
-            if (is_array($value) && count($value) === 0) {
-                throw ValidationException::withMessages(['conditions' => 'Workflow condition ranges cannot be empty.']);
+            if (is_array($value) && ($value === [] || (count($value) === 2 && is_numeric($value[0]) && is_numeric($value[1]) && (float) $value[0] > (float) $value[1]))) {
+                throw ValidationException::withMessages(['conditions' => 'Workflow condition ranges are invalid.']);
             }
         }
     }

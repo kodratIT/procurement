@@ -4,12 +4,14 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Enums\WorkflowConditionOperator;
 use App\Enums\WorkflowVersionStatus;
 use App\Services\WorkflowBindingSelector;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 class WorkflowVersion extends Model
@@ -54,6 +56,11 @@ class WorkflowVersion extends Model
         return $this->hasMany(WorkflowStep::class)->orderBy('sequence');
     }
 
+    public function bindings(): HasMany
+    {
+        return $this->workflow()->getQuery()->whereKey($this->workflow_id)->bindings();
+    }
+
     public function approvalInstances(): HasMany
     {
         return $this->hasMany(ApprovalInstance::class);
@@ -70,20 +77,22 @@ class WorkflowVersion extends Model
             throw ValidationException::withMessages(['workflow_version' => 'A workflow version used by a purchase request cannot be changed.']);
         }
 
-        app(WorkflowBindingSelector::class)->validate($this->workflow);
-        $this->validateDefinition();
-        $this->workflow()->whereKey($this->workflow_id)->update(['is_active' => true]);
-        self::query()->where('workflow_id', $this->workflow_id)->whereKeyNot($this->getKey())->where('status', WorkflowVersionStatus::Active->value)->update([
-            'status' => WorkflowVersionStatus::Retired->value,
-            'retired_at' => now(),
-        ]);
+        return DB::transaction(function (): bool {
+            app(WorkflowBindingSelector::class)->validate($this->workflow);
+            $this->validateDefinition();
+            $this->workflow()->whereKey($this->workflow_id)->update(['is_active' => true]);
+            self::query()->where('workflow_id', $this->workflow_id)->whereKeyNot($this->getKey())->where('status', WorkflowVersionStatus::Active->value)->update([
+                'status' => WorkflowVersionStatus::Retired->value,
+                'retired_at' => now(),
+            ]);
 
-        return $this->update([
-            'status' => WorkflowVersionStatus::Active,
-            'effective_from' => $this->effective_from ?? now(),
-            'activated_at' => now(),
-            'retired_at' => null,
-        ]);
+            return $this->update([
+                'status' => WorkflowVersionStatus::Active,
+                'effective_from' => $this->effective_from ?? now(),
+                'activated_at' => now(),
+                'retired_at' => null,
+            ]);
+        });
     }
 
     public function retire(): bool
@@ -99,6 +108,21 @@ class WorkflowVersion extends Model
 
         if ($sequences !== $expected || $sequences === []) {
             throw ValidationException::withMessages(['workflow_steps' => 'Workflow steps must be non-empty and consecutively ordered from 1.']);
+        }
+
+        foreach ($this->steps()->with('conditions')->get() as $step) {
+            foreach ($step->conditions as $condition) {
+                $operator = $condition->getRawOriginal('operator');
+                $value = $condition->value;
+                if ($condition->field_key === '' || ! in_array($operator, array_column(WorkflowConditionOperator::cases(), 'value'), true)) {
+                    throw ValidationException::withMessages(['workflow_conditions' => 'Workflow conditions must have a valid field and operator.']);
+                }
+                if (($operator === 'between' && (! is_array($value) || count($value) !== 2 || $value[0] > $value[1]))
+                    || ($operator === 'in' && (! is_array($value) || $value === []))
+                    || ($operator !== 'between' && $operator !== 'in' && $value === [])) {
+                    throw ValidationException::withMessages(['workflow_conditions' => 'Workflow condition values are invalid.']);
+                }
+            }
         }
 
         if ($this->effective_from !== null && $this->effective_until !== null && $this->effective_until->lte($this->effective_from)) {
