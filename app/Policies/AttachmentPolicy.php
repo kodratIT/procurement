@@ -7,6 +7,7 @@ namespace App\Policies;
 use App\Models\Attachment;
 use App\Models\Invoice;
 use App\Models\Payment;
+use App\Models\PilgrimDistributionItem;
 use App\Models\PurchaseOrder;
 use App\Models\User;
 use App\Services\MultiOfficeAuthorization;
@@ -31,6 +32,16 @@ final class AttachmentPolicy
         }
         if ($subject instanceof PurchaseOrder) {
             return $this->authorization->allows($user, ProcurementPermissions::VIEW, $subject);
+        }
+        if ($subject instanceof PilgrimDistributionItem) {
+            $subject->loadMissing('distributionItem.distribution.batch');
+
+            return $subject->distributionItem?->distribution?->batch !== null
+                && $this->authorization->allows(
+                    $user,
+                    ProcurementPermissions::VIEW,
+                    $subject->distributionItem->distribution->batch,
+                );
         }
 
         return false;

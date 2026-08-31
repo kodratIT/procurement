@@ -10,10 +10,13 @@ use App\Models\ApproverMapping;
 use App\Models\Attachment;
 use App\Models\Budget;
 use App\Models\DepartureBatch;
+use App\Models\Distribution;
+use App\Models\DistributionItem;
 use App\Models\GoodsReceipt;
 use App\Models\Invoice;
 use App\Models\Office;
 use App\Models\Pilgrim;
+use App\Models\PilgrimDistributionItem;
 use App\Models\ProcurementCategory;
 use App\Models\ProcurementField;
 use App\Models\ProcurementItem;
@@ -35,9 +38,13 @@ use App\Policies\ApproverMappingPolicy;
 use App\Policies\AttachmentPolicy;
 use App\Policies\BudgetPolicy;
 use App\Policies\ContextPolicy;
+use App\Policies\DistributionItemPolicy;
+use App\Policies\DistributionPolicy;
 use App\Policies\GoodsReceiptPolicy;
 use App\Policies\InvoicePolicy;
 use App\Policies\OfficePolicy;
+use App\Policies\PilgrimDistributionItemPolicy;
+use App\Policies\PilgrimPolicy;
 use App\Policies\ProcurementCategoryPolicy;
 use App\Policies\ProcurementFieldPolicy;
 use App\Policies\ProcurementItemPolicy;
@@ -76,6 +83,9 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         Gate::policy(Attachment::class, AttachmentPolicy::class);
+        Gate::policy(Distribution::class, DistributionPolicy::class);
+        Gate::policy(DistributionItem::class, DistributionItemPolicy::class);
+        Gate::policy(PilgrimDistributionItem::class, PilgrimDistributionItemPolicy::class);
         Gate::policy(Invoice::class, InvoicePolicy::class);
         Gate::policy(ApprovalInstanceStep::class, ApprovalInstanceStepPolicy::class);
         Gate::policy(Activity::class, ActivityPolicy::class);
