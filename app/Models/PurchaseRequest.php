@@ -119,7 +119,11 @@ class PurchaseRequest extends Model
             'departure_batch_id' => 'integer',
             'requester_id' => 'integer',
             'vendor_id' => 'integer',
+            'recommended_quotation_id' => 'integer',
+            'recommendation_version' => 'integer',
+            'recommended_by_id' => 'integer',
             'required_date' => 'date',
+            'recommended_at' => 'datetime',
             'total_amount' => 'decimal:2',
             'status' => 'string',
         ];
@@ -163,6 +167,26 @@ class PurchaseRequest extends Model
     public function vendor(): BelongsTo
     {
         return $this->belongsTo(Vendor::class);
+    }
+
+    public function quotations(): HasMany
+    {
+        return $this->hasMany(Quotation::class);
+    }
+
+    public function recommendedQuotation(): BelongsTo
+    {
+        return $this->belongsTo(Quotation::class, 'recommended_quotation_id');
+    }
+
+    public function recommendedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'recommended_by_id');
+    }
+
+    public function quotationRecommendations(): HasMany
+    {
+        return $this->hasMany(QuotationRecommendation::class);
     }
 
     public function items(): HasMany

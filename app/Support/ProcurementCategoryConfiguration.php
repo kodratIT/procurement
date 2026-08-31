@@ -14,6 +14,8 @@ final readonly class ProcurementCategoryConfiguration
         public bool $requiresJamaah,
         public bool $requiresVendor,
         public bool $requiresQuotation,
+        public bool $requiresRecommendationReason,
+        public bool $requiresRecommendationEvidence,
         public bool $requiresReceipt,
         public bool $requiresInvoice,
         public bool $requiresPurchaseOrder,
@@ -31,6 +33,8 @@ final readonly class ProcurementCategoryConfiguration
             'requires_jamaah' => 'Wajib terkait jamaah',
             'requires_vendor' => 'Wajib vendor',
             'requires_quotation' => 'Wajib quotation',
+            'requires_recommendation_reason' => 'Wajib alasan rekomendasi vendor',
+            'requires_recommendation_evidence' => 'Wajib bukti rekomendasi vendor',
             'requires_receipt' => 'Wajib penerimaan',
             'requires_invoice' => 'Wajib invoice',
             'requires_po' => 'Wajib purchase order',
@@ -55,6 +59,16 @@ final readonly class ProcurementCategoryConfiguration
     public function requiresQuotation(): bool
     {
         return $this->requiresQuotation;
+    }
+
+    public function requiresRecommendationReason(): bool
+    {
+        return $this->requiresRecommendationReason;
+    }
+
+    public function requiresRecommendationEvidence(): bool
+    {
+        return $this->requiresRecommendationEvidence;
     }
 
     public function requiresReceipt(): bool
@@ -83,6 +97,8 @@ final readonly class ProcurementCategoryConfiguration
             'requires_jamaah' => $this->requiresJamaah,
             'requires_vendor' => $this->requiresVendor,
             'requires_quotation' => $this->requiresQuotation,
+            'requires_recommendation_reason' => $this->requiresRecommendationReason,
+            'requires_recommendation_evidence' => $this->requiresRecommendationEvidence,
             'requires_receipt' => $this->requiresReceipt,
             'requires_invoice' => $this->requiresInvoice,
             'requires_po' => $this->requiresPurchaseOrder,
