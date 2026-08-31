@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Enums\ProcurementFieldType;
 use App\Models\CostCenter;
 use App\Models\DepartureBatch;
 use App\Models\ProcurementCategory;
 use App\Models\ProcurementField;
 use App\Models\PurchaseRequest;
+use App\Models\PurchaseRequestFieldValue;
 use App\Models\User;
 use App\Support\DomainTransaction;
 use App\Support\ProcurementPermissions;
@@ -27,8 +29,12 @@ final class ProcurementRequestDraftSaver
         private readonly DomainTransaction $transaction,
     ) {}
 
-    public function save(array $data, ?PurchaseRequest $request = null, ?User $user = null): PurchaseRequest
-    {
+    public function save(
+        array $data,
+        ?PurchaseRequest $request = null,
+        ?User $user = null,
+        string $stage = ProcurementField::EDITABLE_STAGE_DRAFT,
+    ): PurchaseRequest {
         $user ??= auth()->user();
 
         if (! $user instanceof User || ! $user->is_active) {
@@ -47,9 +53,8 @@ final class ProcurementRequestDraftSaver
         if ($request !== null && ! $request->isDraft()) {
             throw new AuthorizationException('Only draft purchase requests can be edited.');
         }
-
         $lines = $this->prepareLines($data['items'] ?? []);
-        $dynamicValues = $this->prepareDynamicValues($data, $request);
+        $dynamicValues = $this->prepareDynamicValues($data, $request, $stage);
         $attributes = $this->prepareAttributes(
             $data,
             $assignment->office_id,
@@ -75,6 +80,7 @@ final class ProcurementRequestDraftSaver
 
                 $request->fieldValues()->delete();
                 foreach ($dynamicValues as $value) {
+                    $value['value'] = $this->persistDynamicValue($value['value'], $request, $user, $value['field_key']);
                     $request->fieldValues()->create($value);
                 }
 
@@ -139,11 +145,24 @@ final class ProcurementRequestDraftSaver
      * @param  array<string, mixed>  $data
      * @return list<array<string, mixed>>
      */
-    private function prepareDynamicValues(array $data, ?PurchaseRequest $request): array
-    {
+    private function prepareDynamicValues(
+        array $data,
+        ?PurchaseRequest $request,
+        string $stage,
+    ): array {
+        if (! in_array($stage, ProcurementField::EDITABLE_STAGES, true)) {
+            throw ValidationException::withMessages([
+                'stage' => 'The purchase request edit stage is invalid.',
+            ]);
+        }
+
         $rawValues = $data['fields'] ?? $data['dynamic_fields'] ?? [];
-        if (! is_array($rawValues) || $rawValues === []) {
-            return [];
+        if ($rawValues === null) {
+            $rawValues = [];
+        }
+
+        if (! is_array($rawValues)) {
+            throw ValidationException::withMessages(['fields' => 'Dynamic fields must be an array.']);
         }
 
         $categoryId = $data['category_id'] ?? $request?->category_id;
@@ -154,21 +173,56 @@ final class ProcurementRequestDraftSaver
         $fields = ProcurementField::query()
             ->where('category_id', (int) $categoryId)
             ->where('is_active', true)
-            ->orderBy('sort_order')
+            ->ordered()
             ->get();
-
+        $existingValues = $request?->fieldValues()->get()->keyBy('field_id') ?? collect();
         $valuesByKey = $this->valuesByKey($rawValues);
-        $matchingFields = $fields->filter(fn (ProcurementField $field): bool => array_key_exists($field->key, $valuesByKey));
-        if ($matchingFields->isEmpty()) {
-            return [];
+        $existingByKey = $existingValues
+            ->mapWithKeys(fn (PurchaseRequestFieldValue $value): array => [$value->field_key => $value->value])
+            ->all();
+        $preservedUploadValues = [];
+        foreach ($fields as $field) {
+            $existing = $existingValues->get($field->getKey());
+            if ($field->field_type !== ProcurementFieldType::Upload
+                || ! $existing instanceof PurchaseRequestFieldValue
+                || ! array_key_exists($field->key, $valuesByKey)
+                || $valuesByKey[$field->key] !== $existing->value) {
+                continue;
+            }
+
+            $preservedUploadValues[$field->key] = $existing->value;
+            unset($valuesByKey[$field->key]);
         }
-
-        $validated = $this->dynamicFields->validate($matchingFields, ['fields' => $valuesByKey]);
+        $validationData = ['fields' => $valuesByKey, ...$existingByKey, ...$valuesByKey];
+        $visibleFields = collect($this->dynamicFields->visibleFields($fields, $validationData))
+            ->keyBy(fn (ProcurementField $field): int => $field->getKey());
+        $editableFields = $fields->filter(
+            fn (ProcurementField $field): bool => $field->editable_stage === $stage
+                && $visibleFields->has($field->getKey())
+                && ! array_key_exists($field->key, $preservedUploadValues),
+        );
+        $validated = $this->dynamicFields->validate($editableFields, $validationData);
         $validatedValues = is_array($validated['fields'] ?? null) ? $validated['fields'] : $validated;
+        $validatedValues = [...$preservedUploadValues, ...$validatedValues];
+        $prepared = [];
 
-        return $matchingFields
-            ->filter(fn (ProcurementField $field): bool => array_key_exists($field->key, $validatedValues))
-            ->map(fn (ProcurementField $field): array => [
+        foreach ($fields as $field) {
+            $existing = $existingValues->get($field->getKey());
+            $isEditable = $field->editable_stage === $stage;
+
+            if (! $isEditable || ! $visibleFields->has($field->getKey())) {
+                if ($existing instanceof PurchaseRequestFieldValue) {
+                    $prepared[] = $this->existingDynamicValueAttributes($existing);
+                }
+
+                continue;
+            }
+
+            if (! array_key_exists($field->key, $validatedValues)) {
+                continue;
+            }
+
+            $prepared[] = [
                 'field_id' => $field->getKey(),
                 'field_key' => $field->key,
                 'field_label' => $field->label,
@@ -176,9 +230,24 @@ final class ProcurementRequestDraftSaver
                 'field_version' => $field->version,
                 'definition_snapshot' => $field->definitionSnapshot(),
                 'value' => $validatedValues[$field->key],
-            ])
-            ->values()
-            ->all();
+            ];
+        }
+
+        return $prepared;
+    }
+
+    /** @return array<string, mixed> */
+    private function existingDynamicValueAttributes(PurchaseRequestFieldValue $value): array
+    {
+        return [
+            'field_id' => $value->field_id,
+            'field_key' => $value->field_key,
+            'field_label' => $value->field_label,
+            'field_type' => $value->field_type,
+            'field_version' => $value->field_version,
+            'definition_snapshot' => $value->definition_snapshot,
+            'value' => $value->value,
+        ];
     }
 
     /**
@@ -201,6 +270,30 @@ final class ProcurementRequestDraftSaver
         }
 
         return $keyed;
+    }
+
+    private function persistDynamicValue(
+        mixed $value,
+        PurchaseRequest $request,
+        User $user,
+        string $fieldKey,
+    ): mixed {
+        if ($value instanceof UploadedFile) {
+            return $this->attachments
+                ->store($value, $request, $user, 'purchase-request-field-'.$fieldKey)
+                ->path;
+        }
+
+        if (is_array($value) && array_is_list($value) && $value !== []
+            && collect($value)->every(fn (mixed $file): bool => $file instanceof UploadedFile)) {
+            return collect($value)
+                ->map(fn (UploadedFile $file): string => $this->attachments
+                    ->store($file, $request, $user, 'purchase-request-field-'.$fieldKey)
+                    ->path)
+                ->all();
+        }
+
+        return $value;
     }
 
     /**

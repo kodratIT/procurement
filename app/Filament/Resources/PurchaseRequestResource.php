@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources;
 
-use App\Enums\ProcurementFieldType;
+use App\Filament\Forms\DynamicFieldSchema;
 use App\Filament\Resources\PurchaseRequests\Pages\CreatePurchaseRequest;
 use App\Filament\Resources\PurchaseRequests\Pages\EditPurchaseRequest;
 use App\Filament\Resources\PurchaseRequests\Pages\ManagePurchaseRequests;
@@ -15,7 +15,6 @@ use App\Models\PurchaseRequest;
 use App\Services\AccessContextService;
 use App\Services\AttachmentService;
 use Filament\Forms\Components\DatePicker;
-use Filament\Forms\Components\Field;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\KeyValue;
 use Filament\Forms\Components\Repeater;
@@ -23,6 +22,7 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Resources\Resource;
+use Filament\Schemas\Components\Component;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
@@ -183,43 +183,13 @@ class PurchaseRequestResource extends Resource
     }
 
     /**
-     * @return array<int, Field>
+     * @return list<Component>
      */
-    public static function dynamicFieldComponents(?int $categoryId): array
-    {
-        if ($categoryId === null) {
-            return [];
-        }
-
-        return ProcurementField::query()
-            ->where('category_id', $categoryId)
-            ->where('is_active', true)
-            ->orderBy('sort_order')
-            ->get()
-            ->map(fn (ProcurementField $field): Field => self::componentForField($field))
-            ->all();
-    }
-
-    private static function componentForField(ProcurementField $field): Field
-    {
-        $name = 'fields.'.$field->key;
-        $type = $field->field_type;
-        $component = match ($type) {
-            ProcurementFieldType::Textarea => Textarea::make($name),
-            ProcurementFieldType::Number, ProcurementFieldType::Currency => TextInput::make($name)->numeric(),
-            ProcurementFieldType::Date => DatePicker::make($name),
-            ProcurementFieldType::Dropdown, ProcurementFieldType::Radio, ProcurementFieldType::Relation, ProcurementFieldType::Variant => Select::make($name)
-                ->options($field->options ?? [])
-                ->searchable(),
-            ProcurementFieldType::Checkbox => Select::make($name)->options(['1' => 'Ya', '0' => 'Tidak']),
-            default => TextInput::make($name),
-        };
-
-        return $component
-            ->label($field->label)
-            ->required($field->is_required)
-            ->default($field->default_value)
-            ->dehydrated();
+    public static function dynamicFieldComponents(
+        ?int $categoryId,
+        string $stage = ProcurementField::EDITABLE_STAGE_DRAFT,
+    ): array {
+        return app(DynamicFieldSchema::class)->components($categoryId, $stage);
     }
 
     /** @return array<int|string, string> */
