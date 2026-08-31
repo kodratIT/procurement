@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources;
 
+use App\Filament\Resources\WorkflowResource\RelationManagers\BindingsRelationManager;
+use App\Filament\Resources\WorkflowResource\RelationManagers\VersionsRelationManager;
 use App\Models\Workflow;
 use Filament\Actions\Action;
 use Filament\Actions\DeleteAction;
@@ -59,8 +61,8 @@ class WorkflowResource extends Resource
     public static function getRelations(): array
     {
         return [
-            RelationManagers\VersionsRelationManager::class,
-            RelationManagers\BindingsRelationManager::class,
+            VersionsRelationManager::class,
+            BindingsRelationManager::class,
         ];
     }
 

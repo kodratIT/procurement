@@ -4,12 +4,15 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\WorkflowResource\RelationManagers;
 
+use App\Services\WorkflowBindingSelector;
+use Filament\Actions\Action;
 use Filament\Actions\CreateAction;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
+use Filament\Notifications\Notification;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Schemas\Schema;
 use Filament\Tables\Columns\IconColumn;
@@ -45,6 +48,33 @@ class BindingsRelationManager extends RelationManager
             TextColumn::make('minimum_amount')->numeric(),
             TextColumn::make('maximum_amount')->numeric(),
             IconColumn::make('is_active')->boolean(),
-        ])->headerActions([CreateAction::make()])->recordActions([EditAction::make(), DeleteAction::make()]);
+        ])->headerActions([
+            CreateAction::make(),
+            Action::make('simulate')
+                ->label('Simulasikan')
+                ->schema([
+                    TextInput::make('transaction_type')->maxLength(50),
+                    TextInput::make('office_id')->numeric(),
+                    TextInput::make('branch_id')->numeric(),
+                    TextInput::make('department_id')->numeric(),
+                    TextInput::make('category_id')->numeric(),
+                    TextInput::make('cost_center_id')->numeric(),
+                    TextInput::make('amount')->numeric()->minValue(0),
+                    Textarea::make('conditions')->json(),
+                ])
+                ->action(function (array $data): void {
+                    $context = array_filter($data, static fn (mixed $value): bool => $value !== null && $value !== '');
+                    $result = app(WorkflowBindingSelector::class)->simulate([
+                        ...$context,
+                        'workflow_id' => $this->getOwnerRecord()->getKey(),
+                    ]);
+
+                    Notification::make()
+                        ->title('Workflow binding ditemukan')
+                        ->body(sprintf('Binding #%d, prioritas %d, specificity %d.', $result['binding_id'], $result['priority'], $result['specificity']))
+                        ->success()
+                        ->send();
+                }),
+        ])->recordActions([EditAction::make(), DeleteAction::make()]);
     }
 }
