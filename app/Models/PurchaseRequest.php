@@ -57,7 +57,7 @@ class PurchaseRequest extends Model
         'departure_batch_id',
         'requester_id',
         'category_id',
-        'title',
+        'vendor_id',
         'notes',
         'reason',
         'required_date',
@@ -118,7 +118,7 @@ class PurchaseRequest extends Model
             'cost_center_id' => 'integer',
             'departure_batch_id' => 'integer',
             'requester_id' => 'integer',
-            'category_id' => 'integer',
+            'vendor_id' => 'integer',
             'required_date' => 'date',
             'total_amount' => 'decimal:2',
             'status' => 'string',
@@ -158,6 +158,11 @@ class PurchaseRequest extends Model
     public function category(): BelongsTo
     {
         return $this->belongsTo(ProcurementCategory::class, 'category_id');
+    }
+
+    public function vendor(): BelongsTo
+    {
+        return $this->belongsTo(Vendor::class);
     }
 
     public function items(): HasMany

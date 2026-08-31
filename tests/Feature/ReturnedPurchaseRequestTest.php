@@ -14,7 +14,7 @@ use App\Models\UserAssignment;
 use App\Services\AccessContextService;
 use App\Services\ProcurementRequestDraftSaver;
 use App\Services\ProcurementRequestSubmitter;
-use App\Services\PurchaseRequestReviewService;
+use App\Services\ProcurementReviewService;
 use App\Services\PurchaseRequestTimeline;
 use Database\Seeders\ProcurementRolesSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -30,7 +30,7 @@ final class ReturnedPurchaseRequestTest extends TestCase
         $this->actingAs($reviewer);
         app(AccessContextService::class)->setContext($this->assignment($reviewer, $office, 'Pengadaan'));
 
-        $returned = app(PurchaseRequestReviewService::class)->returnToRequester(
+        $returned = app(ProcurementReviewService::class)->returnToRequester(
             $request,
             'Please add the supplier specification.',
             $reviewer,
@@ -55,7 +55,7 @@ final class ReturnedPurchaseRequestTest extends TestCase
         $number = $request->pr_number;
         $this->actingAs($reviewer);
         app(AccessContextService::class)->setContext($this->assignment($reviewer, $office, 'Pengadaan'));
-        $request = app(PurchaseRequestReviewService::class)->returnToRequester($request, 'Correct the quantity.', $reviewer);
+        $request = app(ProcurementReviewService::class)->returnToRequester($request, 'Correct the quantity.', $reviewer);
 
         $this->actingAs($submitter);
         app(AccessContextService::class)->setContext($this->assignment($submitter, $office, 'Operasional'));

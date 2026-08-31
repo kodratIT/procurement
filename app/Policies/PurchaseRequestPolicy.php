@@ -42,6 +42,18 @@ final class PurchaseRequestPolicy
             && $this->authorization->canUpdate($user, $request, true);
     }
 
+    public function review(User $user, PurchaseRequest $request): bool
+    {
+        return in_array($request->status, [PurchaseRequest::STATUS_SUBMITTED, PurchaseRequest::STATUS_PROCUREMENT_REVIEW], true)
+            && $this->authorization->canUpdate($user, $request, true);
+    }
+
+    public function forward(User $user, PurchaseRequest $request): bool
+    {
+        return $request->status === PurchaseRequest::STATUS_SUBMITTED
+            && $this->authorization->canUpdate($user, $request, true);
+    }
+
     public function create(User $user): bool
     {
         return $this->authorization->canCreate($user);
