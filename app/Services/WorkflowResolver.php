@@ -7,6 +7,7 @@ namespace App\Services;
 use App\Models\PurchaseRequest;
 use App\Models\User;
 use App\Models\UserAssignment;
+use App\Models\Workflow;
 use App\Support\ProcurementPermissions;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Validation\ValidationException;
@@ -26,6 +27,14 @@ class WorkflowResolver
     public function resolve(PurchaseRequest $request, User $submitter): array
     {
         $reference = $request->category?->workflow_reference;
+        $configuredWorkflow = is_string($reference) && $reference !== ''
+            ? Workflow::query()->where('code', $reference)->where('is_active', true)->first()
+            : null;
+        $activeVersion = $configuredWorkflow?->activeVersion();
+
+        if ($activeVersion !== null) {
+            $reference = $configuredWorkflow->code;
+        }
 
         if (! is_string($reference) || $reference === '') {
             throw ValidationException::withMessages([
@@ -71,7 +80,7 @@ class WorkflowResolver
 
         return [
             'reference' => $reference,
-            'version' => 1,
+            'version' => $activeVersion?->version_number ?? 1,
             'context' => [
                 'requester_id' => $request->requester_id,
                 'office_id' => $request->office_id,

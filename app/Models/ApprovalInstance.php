@@ -15,6 +15,7 @@ class ApprovalInstance extends Model
 
     protected $fillable = [
         'purchase_request_id',
+        'workflow_version_id',
         'workflow_reference',
         'workflow_version',
         'status',
@@ -32,6 +33,7 @@ class ApprovalInstance extends Model
     {
         return [
             'purchase_request_id' => 'integer',
+            'workflow_version_id' => 'integer',
             'workflow_version' => 'integer',
             'requester_id' => 'integer',
             'submitted_by_id' => 'integer',
@@ -47,6 +49,11 @@ class ApprovalInstance extends Model
     public function purchaseRequest(): BelongsTo
     {
         return $this->belongsTo(PurchaseRequest::class);
+    }
+
+    public function workflowVersion(): BelongsTo
+    {
+        return $this->belongsTo(WorkflowVersion::class);
     }
 
     public function requester(): BelongsTo
