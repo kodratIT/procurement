@@ -62,6 +62,11 @@ class Vendor extends Model
         return $this->hasMany(VendorItem::class);
     }
 
+    public function invoices(): HasMany
+    {
+        return $this->hasMany(Invoice::class);
+    }
+
     public function deactivate(): bool
     {
         return $this->forceFill(['is_active' => false])->save();

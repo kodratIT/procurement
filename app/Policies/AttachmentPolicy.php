@@ -1,0 +1,36 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Policies;
+
+use App\Models\Attachment;
+use App\Models\Invoice;
+use App\Models\PurchaseOrder;
+use App\Models\User;
+use App\Services\MultiOfficeAuthorization;
+use App\Support\ProcurementPermissions;
+
+final class AttachmentPolicy
+{
+    public function __construct(private readonly MultiOfficeAuthorization $authorization) {}
+
+    public function view(User $user, Attachment $attachment): bool
+    {
+        $attachment->loadMissing('attachable');
+        $subject = $attachment->attachable;
+        if ($subject instanceof Invoice) {
+            return $this->authorization->allows($user, ProcurementPermissions::VIEW, $subject);
+        }
+        if ($subject instanceof PurchaseOrder) {
+            return $this->authorization->allows($user, ProcurementPermissions::VIEW, $subject);
+        }
+
+        return false;
+    }
+
+    public function download(User $user, Attachment $attachment): bool
+    {
+        return $this->view($user, $attachment);
+    }
+}

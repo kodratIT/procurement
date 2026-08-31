@@ -7,9 +7,11 @@ use App\Models\Activity;
 use App\Models\ApprovalInstanceStep;
 use App\Models\ApproverDelegation;
 use App\Models\ApproverMapping;
+use App\Models\Attachment;
 use App\Models\Budget;
 use App\Models\DepartureBatch;
 use App\Models\GoodsReceipt;
+use App\Models\Invoice;
 use App\Models\Office;
 use App\Models\Pilgrim;
 use App\Models\ProcurementCategory;
@@ -30,9 +32,11 @@ use App\Policies\ActivityPolicy;
 use App\Policies\ApprovalInstanceStepPolicy;
 use App\Policies\ApproverDelegationPolicy;
 use App\Policies\ApproverMappingPolicy;
+use App\Policies\AttachmentPolicy;
 use App\Policies\BudgetPolicy;
 use App\Policies\ContextPolicy;
 use App\Policies\GoodsReceiptPolicy;
+use App\Policies\InvoicePolicy;
 use App\Policies\OfficePolicy;
 use App\Policies\ProcurementCategoryPolicy;
 use App\Policies\ProcurementFieldPolicy;
@@ -71,6 +75,8 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        Gate::policy(Attachment::class, AttachmentPolicy::class);
+        Gate::policy(Invoice::class, InvoicePolicy::class);
         Gate::policy(ApprovalInstanceStep::class, ApprovalInstanceStepPolicy::class);
         Gate::policy(Activity::class, ActivityPolicy::class);
         Gate::policy(ProcurementField::class, ProcurementFieldPolicy::class);
