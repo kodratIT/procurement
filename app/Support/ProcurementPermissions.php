@@ -14,6 +14,8 @@ final class ProcurementPermissions
 
     public const DELETE = 'procurement.delete';
 
+    public const SUBMIT = 'procurement.submit';
+
     public const APPROVE = 'procurement.approve';
 
     public const EXPORT = 'procurement.export';
@@ -34,6 +36,7 @@ final class ProcurementPermissions
             self::CREATE,
             self::UPDATE,
             self::DELETE,
+            self::SUBMIT,
             self::APPROVE,
             self::EXPORT,
             self::MANAGE_MASTER_DATA,

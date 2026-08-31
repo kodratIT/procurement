@@ -21,6 +21,8 @@ class PurchaseRequest extends Model
 
     public const STATUS_SUBMITTED = PurchaseRequestStatus::Submitted->value;
 
+    public const STATUS_PROCUREMENT_REVIEW = PurchaseRequestStatus::ProcurementReview->value;
+
     public const STATUS_APPROVED = PurchaseRequestStatus::Approved->value;
 
     public const STATUS_REJECTED = PurchaseRequestStatus::Rejected->value;
@@ -35,6 +37,7 @@ class PurchaseRequest extends Model
     public const STATUSES = [
         self::STATUS_DRAFT,
         self::STATUS_SUBMITTED,
+        self::STATUS_PROCUREMENT_REVIEW,
         self::STATUS_APPROVED,
         self::STATUS_REJECTED,
         self::STATUS_RETURNED,
@@ -160,6 +163,22 @@ class PurchaseRequest extends Model
     public function items(): HasMany
     {
         return $this->hasMany(PurchaseRequestItem::class)->orderBy('sort_order');
+    }
+
+    public function statusHistories(): HasMany
+    {
+        return $this->hasMany(PurchaseRequestStatusHistory::class)->orderBy('created_at')->orderBy('id');
+    }
+
+    /** @return HasMany<ApprovalInstance> */
+    public function approvalInstances(): HasMany
+    {
+        return $this->hasMany(ApprovalInstance::class);
+    }
+
+    public function isCorrectable(): bool
+    {
+        return in_array($this->status, [self::STATUS_DRAFT, self::STATUS_RETURNED], true);
     }
 
     public function fieldValues(): HasMany

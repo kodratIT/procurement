@@ -27,6 +27,7 @@ final class ProcurementRequestDraftSaver
         private readonly DynamicFieldValidator $dynamicFields,
         private readonly AttachmentService $attachments,
         private readonly DomainTransaction $transaction,
+        private readonly PurchaseRequestTimeline $timeline,
     ) {}
 
     public function save(
@@ -50,9 +51,10 @@ final class ProcurementRequestDraftSaver
             ? Gate::forUser($user)->authorize('create', PurchaseRequest::class)
             : Gate::forUser($user)->authorize('update', $request);
 
-        if ($request !== null && ! $request->isDraft()) {
-            throw new AuthorizationException('Only draft purchase requests can be edited.');
+        if ($request !== null && ! $request->isCorrectable()) {
+            throw new AuthorizationException('Only draft or returned purchase requests can be edited.');
         }
+        $wasReturned = $request?->status === PurchaseRequest::STATUS_RETURNED;
         $lines = $this->prepareLines($data['items'] ?? []);
         $dynamicValues = $this->prepareDynamicValues($data, $request, $stage);
         $attributes = $this->prepareAttributes(
@@ -67,10 +69,11 @@ final class ProcurementRequestDraftSaver
 
         return $this->transaction->run(
             'save purchase request draft',
-            function () use ($request, $attributes, $lines, $dynamicValues, $attachments, $user): PurchaseRequest {
+            function () use ($request, $attributes, $lines, $dynamicValues, $attachments, $user, $wasReturned): PurchaseRequest {
                 $request ??= new PurchaseRequest;
+                $previousStatus = $request->status;
                 $request->fill($attributes);
-                $request->status = PurchaseRequest::STATUS_DRAFT;
+                $request->status = $wasReturned ? $previousStatus : PurchaseRequest::STATUS_DRAFT;
                 $request->save();
 
                 $request->items()->delete();
@@ -89,6 +92,30 @@ final class ProcurementRequestDraftSaver
                 }
 
                 $request->syncTotals();
+
+                if ($wasReturned) {
+                    $this->timeline->record(
+                        $request,
+                        $user,
+                        $previousStatus,
+                        PurchaseRequest::STATUS_RETURNED,
+                        'correction_saved',
+                        'correction',
+                        'Purchase request correction saved.',
+                    );
+                    activity('procurement')
+                        ->performedOn($request)
+                        ->causedBy($user)
+                        ->event('correction_saved')
+                        ->withProperties([
+                            'status' => PurchaseRequest::STATUS_RETURNED,
+                            'requester_id' => $request->requester_id,
+                            'office_id' => $request->office_id,
+                            'branch_id' => $request->branch_id,
+                            'department_id' => $request->department_id,
+                        ])
+                        ->log('Purchase request correction saved');
+                }
 
                 return $request->refresh();
             },

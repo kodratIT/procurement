@@ -17,6 +17,7 @@ class ProcurementRolesSeeder extends Seeder
             ProcurementPermissions::VIEW,
             ProcurementPermissions::CREATE,
             ProcurementPermissions::UPDATE,
+            ProcurementPermissions::SUBMIT,
         ],
         'Pengadaan' => [
             ProcurementPermissions::VIEW,
@@ -39,6 +40,7 @@ class ProcurementRolesSeeder extends Seeder
             ProcurementPermissions::CREATE,
             ProcurementPermissions::UPDATE,
             ProcurementPermissions::DELETE,
+            ProcurementPermissions::SUBMIT,
             ProcurementPermissions::APPROVE,
             ProcurementPermissions::EXPORT,
             ProcurementPermissions::MANAGE_MASTER_DATA,

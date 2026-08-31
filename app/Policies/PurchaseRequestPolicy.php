@@ -7,6 +7,7 @@ namespace App\Policies;
 use App\Models\PurchaseRequest;
 use App\Models\User;
 use App\Services\MultiOfficeAuthorization;
+use App\Support\ProcurementPermissions;
 
 final class PurchaseRequestPolicy
 {
@@ -19,7 +20,26 @@ final class PurchaseRequestPolicy
 
     public function view(User $user, PurchaseRequest $request): bool
     {
-        return $request->isDraft() && $this->authorization->canView($user, $request);
+        return $this->authorization->canView($user, $request);
+    }
+
+    public function viewTimeline(User $user, PurchaseRequest $request): bool
+    {
+        return $this->authorization->canView($user, $request);
+    }
+
+    public function submit(User $user, PurchaseRequest $request): bool
+    {
+        return $request->isCorrectable()
+            && $request->requester_id === $user->getKey()
+            && $this->authorization->canMutate($user, $request, ProcurementPermissions::SUBMIT);
+    }
+
+    public function return(User $user, PurchaseRequest $request): bool
+    {
+        return in_array($request->status, [PurchaseRequest::STATUS_SUBMITTED, PurchaseRequest::STATUS_PROCUREMENT_REVIEW], true)
+            && $request->requester_id !== $user->getKey()
+            && $this->authorization->canUpdate($user, $request, true);
     }
 
     public function create(User $user): bool
@@ -29,7 +49,7 @@ final class PurchaseRequestPolicy
 
     public function update(User $user, PurchaseRequest $request): bool
     {
-        return $request->isDraft() && $this->authorization->canUpdate($user, $request, true);
+        return $request->isCorrectable() && $this->authorization->canUpdate($user, $request, true);
     }
 
     public function delete(User $user, PurchaseRequest $request): bool

@@ -14,7 +14,9 @@ use App\Models\ProcurementVariant;
 use App\Models\PurchaseRequest;
 use App\Services\AccessContextService;
 use App\Services\AttachmentService;
-use Filament\Forms\Components\DatePicker;
+use App\Services\ProcurementRequestSubmitter;
+use Filament\Actions\Action;
+use Filament\Actions\EditAction;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\KeyValue;
 use Filament\Forms\Components\Repeater;
@@ -155,6 +157,7 @@ class PurchaseRequestResource extends Resource
                 TextColumn::make('title')->label('Judul')->searchable(),
                 TextColumn::make('category.name')->label('Kategori'),
                 TextColumn::make('requester.name')->label('Pengaju'),
+                TextColumn::make('status')->badge(),
                 TextColumn::make('total_amount')->label('Total')->sortable(),
                 TextColumn::make('priority')->label('Prioritas'),
                 TextColumn::make('updated_at')->dateTime()->sortable(),
@@ -165,12 +168,21 @@ class PurchaseRequestResource extends Resource
             ])
             ->recordActions([
                 EditAction::make(),
+                Action::make('submit')
+                    ->label('Submit')
+                    ->requiresConfirmation()
+                    ->visible(fn (PurchaseRequest $record): bool => $record->isCorrectable())
+                    ->authorize('submit')
+                    ->action(fn (PurchaseRequest $record): PurchaseRequest => app(ProcurementRequestSubmitter::class)->submit($record)),
             ]);
     }
 
     public static function getEloquentQuery(): Builder
     {
-        return parent::getEloquentQuery()->where('status', PurchaseRequest::STATUS_DRAFT);
+        return parent::getEloquentQuery()->whereIn('status', [
+            PurchaseRequest::STATUS_DRAFT,
+            PurchaseRequest::STATUS_RETURNED,
+        ]);
     }
 
     public static function getPages(): array
