@@ -130,9 +130,24 @@ final class GoodsReceiptsRelationManager extends RelationManager
 
         return User::query()
             ->where('is_active', true)
-            ->whereHas('assignments', fn (Builder $query): Builder => $query
-                ->currentlyActive()
-                ->where('office_id', $order->office_id))
+            ->whereHas('assignments', function (Builder $query) use ($order): void {
+                $query
+                    ->currentlyActive()
+                    ->where('office_id', $order->office_id);
+
+                foreach (['branch_id', 'department_id'] as $column) {
+                    $value = $order->{$column};
+                    $query->where(function (Builder $query) use ($column, $value): void {
+                        if ($value === null) {
+                            $query->whereNull($column);
+
+                            return;
+                        }
+
+                        $query->whereNull($column)->orWhere($column, $value);
+                    });
+                }
+            })
             ->orderBy('name')
             ->pluck('name', 'id')
             ->all();
