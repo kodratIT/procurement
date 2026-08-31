@@ -77,6 +77,41 @@ final class QuotationComparisonTest extends TestCase
         $this->assertDatabaseCount('quotation_recommendations', 0);
     }
 
+    public function test_recording_rejects_duplicate_or_invalid_quotation_lines(): void
+    {
+        [$reviewer, $request] = $this->reviewContext();
+        $line = $request->items()->create(['item_name' => 'Uniform', 'quantity' => 2, 'unit_price' => 10]);
+        $vendorId = Vendor::factory()->create()->id;
+        $service = app(QuotationComparisonService::class);
+
+        try {
+            $service->recordQuotation($request, [
+                'vendor_id' => $vendorId,
+                'quotation_number' => 'QTN-DUPLICATE',
+                'items' => [
+                    ['purchase_request_item_id' => $line->id, 'quantity' => 2, 'unit_price' => 100],
+                    ['purchase_request_item_id' => $line->id, 'quantity' => 2, 'unit_price' => 90],
+                ],
+            ], $reviewer);
+            $this->fail('Duplicate purchase request lines must be rejected.');
+        } catch (ValidationException $exception) {
+            $this->assertArrayHasKey('items.1.purchase_request_item_id', $exception->errors());
+        }
+
+        try {
+            $service->recordQuotation($request, [
+                'vendor_id' => $vendorId,
+                'quotation_number' => 'QTN-INVALID-QUANTITY',
+                'items' => [
+                    ['purchase_request_item_id' => $line->id, 'quantity' => -1, 'unit_price' => 100],
+                ],
+            ], $reviewer);
+            $this->fail('Non-positive quotation quantities must be rejected.');
+        } catch (ValidationException $exception) {
+            $this->assertArrayHasKey('items.0', $exception->errors());
+        }
+    }
+
     public function test_required_reason_and_evidence_are_enforced_and_recommendation_is_versioned(): void
     {
         [$reviewer, $request] = $this->reviewContext([

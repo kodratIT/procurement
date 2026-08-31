@@ -42,15 +42,28 @@ class QuotationItem extends Model
                 ]);
             }
 
-            $item->quantity = is_numeric($item->quantity) && (float) $item->quantity > 0
-                ? $item->quantity
-                : $requestItem->quantity;
+            $duplicate = self::query()
+                ->where('quotation_id', $item->quotation_id)
+                ->where('purchase_request_item_id', $item->purchase_request_item_id)
+                ->when($item->exists, fn ($query) => $query->where('id', '!=', $item->getKey()))
+                ->exists();
+            if ($duplicate) {
+                throw ValidationException::withMessages([
+                    'purchase_request_item_id' => 'A quotation can contain only one line for each purchase request item.',
+                ]);
+            }
+
+            $quantity = $item->quantity;
+            if ($quantity === null || $quantity === '') {
+                $quantity = $requestItem->quantity;
+            }
 
             try {
                 $lineTotal = app(PurchaseRequestTotalCalculator::class)->lineTotal(
-                    $item->quantity,
+                    $quantity,
                     $item->unit_price,
                 );
+                $item->quantity = $quantity;
                 $item->line_total = $lineTotal;
                 $item->total_price = $lineTotal;
             } catch (\InvalidArgumentException $exception) {

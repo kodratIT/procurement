@@ -469,6 +469,7 @@ final class QuotationComparisonService
         }
 
         $requestItems = $request->items()->get()->keyBy('id');
+        $seenRequestItemIds = [];
         $lines = [];
         foreach (array_values($rawLines) as $sortOrder => $rawLine) {
             if (! is_array($rawLine) || ! is_numeric($rawLine['purchase_request_item_id'] ?? null)) {
@@ -481,13 +482,23 @@ final class QuotationComparisonService
                 throw ValidationException::withMessages(["items.{$sortOrder}" => 'The quotation line is outside the purchase request.']);
             }
 
+            if (in_array($requestItemId, $seenRequestItemIds, true)) {
+                throw ValidationException::withMessages(["items.{$sortOrder}.purchase_request_item_id" => 'A quotation can contain only one line for each purchase request item.']);
+            }
+            $seenRequestItemIds[] = $requestItemId;
+
             $quantity = $rawLine['quantity'] ?? $requestItem->quantity;
             $unitPrice = $rawLine['unit_price'] ?? null;
             if ($unitPrice === null) {
                 throw ValidationException::withMessages(["items.{$sortOrder}.unit_price" => 'A quoted unit price is required.']);
             }
 
-            $this->totals->lineTotal($quantity, $unitPrice);
+            try {
+                $this->totals->lineTotal($quantity, $unitPrice);
+            } catch (\InvalidArgumentException $exception) {
+                throw ValidationException::withMessages(["items.{$sortOrder}" => $exception->getMessage()]);
+            }
+
             $lines[] = [
                 'purchase_request_item_id' => $requestItemId,
                 'description' => $rawLine['description'] ?? $requestItem->description,

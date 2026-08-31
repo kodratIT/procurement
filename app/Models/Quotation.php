@@ -67,6 +67,14 @@ class Quotation extends Model
             if ($quotation->exists && $quotation->isDirty('purchase_request_id')) {
                 throw new \LogicException('A quotation cannot be moved to another purchase request.');
             }
+
+            if ((! $quotation->exists || $quotation->isDirty('vendor_id'))
+                && (! is_numeric($quotation->vendor_id)
+                    || ! Vendor::query()->availableForNewTransactions()->whereKey((int) $quotation->vendor_id)->exists())) {
+                throw ValidationException::withMessages([
+                    'vendor_id' => 'The selected vendor is inactive or invalid.',
+                ]);
+            }
         });
     }
 

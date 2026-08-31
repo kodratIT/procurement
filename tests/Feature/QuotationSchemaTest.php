@@ -9,6 +9,7 @@ use App\Models\Quotation;
 use App\Models\Vendor;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Validation\ValidationException;
 use Tests\TestCase;
 
 final class QuotationSchemaTest extends TestCase
@@ -58,5 +59,15 @@ final class QuotationSchemaTest extends TestCase
         $this->assertTrue($item->purchaseRequestItem->is($requestItem));
         $this->assertSame('251.00', $item->line_total);
         $this->assertSame('251.00', $item->total_price);
+    }
+
+    public function test_new_quotation_cannot_use_an_inactive_vendor(): void
+    {
+        $request = PurchaseRequest::factory()->create();
+        $vendor = Vendor::factory()->create(['is_active' => false]);
+
+        $this->expectException(ValidationException::class);
+
+        Quotation::factory()->for($request)->for($vendor)->create();
     }
 }
