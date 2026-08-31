@@ -16,6 +16,7 @@ class ProcurementRolesSeeder extends Seeder
         'Operasional' => [
             ProcurementPermissions::VIEW,
             ProcurementPermissions::CREATE,
+            ProcurementPermissions::UPDATE,
         ],
         'Pengadaan' => [
             ProcurementPermissions::VIEW,

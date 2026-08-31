@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Services\PurchaseRequestTotalCalculator;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -16,9 +17,11 @@ class PurchaseRequestItem extends Model
         'procurement_unit_id',
         'procurement_variant_id',
         'item_name',
+        'description',
         'unit_name',
         'variant_name',
         'variant_value',
+        'specifications',
         'quantity',
         'unit_price',
         'line_total',
@@ -29,23 +32,24 @@ class PurchaseRequestItem extends Model
     protected static function booted(): void
     {
         static::saving(function (self $item): void {
-            if ((float) $item->quantity <= 0) {
-                throw new \InvalidArgumentException('quantity must be greater than zero.');
-            }
-            if ((float) $item->unit_price < 0) {
-                throw new \InvalidArgumentException('unit_price must not be negative.');
-            }
+            $item->line_total = app(PurchaseRequestTotalCalculator::class)->lineTotal(
+                $item->quantity,
+                $item->unit_price,
+            );
 
             $item->validateCatalogReferences();
-            $item->calculateLineTotal();
         });
 
         static::saved(function (self $item): void {
-            $item->purchaseRequest?->recalculateTotal();
+            if ($item->purchaseRequest !== null) {
+                app(PurchaseRequestTotalCalculator::class)->recalculateHeader($item->purchaseRequest);
+            }
         });
 
         static::deleted(function (self $item): void {
-            $item->purchaseRequest?->recalculateTotal();
+            if ($item->purchaseRequest !== null) {
+                app(PurchaseRequestTotalCalculator::class)->recalculateHeader($item->purchaseRequest);
+            }
         });
     }
 
@@ -109,6 +113,7 @@ class PurchaseRequestItem extends Model
             'procurement_item_id' => 'integer',
             'procurement_unit_id' => 'integer',
             'procurement_variant_id' => 'integer',
+            'specifications' => 'array',
             'quantity' => 'decimal:2',
             'unit_price' => 'decimal:2',
             'line_total' => 'decimal:2',
@@ -138,14 +143,12 @@ class PurchaseRequestItem extends Model
 
     /**
      * Server-side line calculation: line_total = quantity x unit_price.
-     * Runs on every save; the stored value never comes from the client.
      */
     public function calculateLineTotal(): void
     {
-        $this->line_total = (string) (bcmul(
-            (string) ($this->quantity ?? 0),
-            (string) ($this->unit_price ?? 0),
-            2
-        ));
+        $this->line_total = app(PurchaseRequestTotalCalculator::class)->lineTotal(
+            $this->quantity,
+            $this->unit_price,
+        );
     }
 }

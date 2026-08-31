@@ -26,7 +26,9 @@ class PurchaseRequestFactory extends Factory
             'requester_id' => User::factory(),
             'title' => fake()->sentence(4),
             'notes' => null,
+            'reason' => fake()->sentence(8),
             'required_date' => fake()->dateTimeBetween('+1 week', '+3 months')->format('Y-m-d'),
+            'priority' => 'normal',
             'status' => PurchaseRequest::STATUS_DRAFT,
             'total_amount' => 0,
         ];

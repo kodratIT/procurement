@@ -30,18 +30,18 @@ class PurchaseRequestSchemaTest extends TestCase
         $this->assertTrue(Schema::hasColumns('purchase_requests', [
             'id', 'pr_number', 'office_id', 'branch_id', 'department_id',
             'cost_center_id', 'departure_batch_id', 'requester_id',
-            'title', 'notes', 'required_date', 'status', 'total_amount',
+            'title', 'notes', 'reason', 'required_date', 'priority', 'status', 'total_amount',
             'created_at', 'updated_at',
         ]));
 
         $this->assertTrue(Schema::hasColumns('purchase_request_items', [
             'id', 'purchase_request_id', 'procurement_item_id', 'procurement_unit_id',
-            'item_name', 'unit_name', 'quantity', 'unit_price', 'line_total',
+            'item_name', 'description', 'unit_name', 'specifications', 'quantity', 'unit_price', 'line_total',
             'notes', 'sort_order', 'created_at', 'updated_at',
         ]));
     }
 
-    public function test_pr_number_is_assigned_automatically_in_server_sequence(): void
+    public function test_drafts_use_unique_placeholders_without_allocating_final_numbers(): void
     {
         $office = Office::factory()->create();
         $user = User::factory()->create();
@@ -57,32 +57,25 @@ class PurchaseRequestSchemaTest extends TestCase
             'title' => 'Second',
         ]);
 
-        $this->assertMatchesRegularExpression('/^PR-\d{6}-\d{4}$/', $first->pr_number);
-        $this->assertMatchesRegularExpression('/^PR-\d{6}-\d{4}$/', $second->pr_number);
+        $this->assertSame('DRAFT-'.$first->id, $first->pr_number);
+        $this->assertSame('DRAFT-'.$second->id, $second->pr_number);
         $this->assertNotSame($first->pr_number, $second->pr_number);
-
-        // Same month => sequential suffix.
-        $firstMonth = substr($first->pr_number, 3, 6);
-        $secondMonth = substr($second->pr_number, 3, 6);
-        $this->assertSame($firstMonth, $secondMonth);
-
-        $firstSeq = (int) substr($first->pr_number, -4);
-        $secondSeq = (int) substr($second->pr_number, -4);
-        $this->assertSame($firstSeq + 1, $secondSeq);
+        $this->assertDatabaseMissing('purchase_request_number_sequences', [
+            'month' => now()->format('Ym'),
+        ]);
     }
 
-    public function test_number_service_resumes_after_existing_sequence(): void
+    public function test_number_service_starts_after_drafts_without_treating_placeholders_as_numbers(): void
     {
         $office = Office::factory()->create();
         $user = User::factory()->create();
 
         PurchaseRequest::create(['office_id' => $office->id, 'requester_id' => $user->id]);
 
-        $service = app(PurchaseRequestNumberService::class);
-        $next = $service->next();
+        $next = app(PurchaseRequestNumberService::class)->next();
 
-        $this->assertMatchesRegularExpression('/^PR-\d{6}-\d{4}$/', $next);
-        $this->assertSame('0002', substr($next, -4));
+        $this->assertMatchesRegularExpression('/^PR-\\d{6}-\\d{4}$/', $next);
+        $this->assertSame('0001', substr($next, -4));
     }
 
     public function test_line_total_is_calculated_server_side(): void
@@ -126,7 +119,7 @@ class PurchaseRequestSchemaTest extends TestCase
         ]);
     }
 
-    public function test_monthly_sequence_remains_unique_for_many_creates(): void
+    public function test_draft_placeholders_remain_unique_for_many_creates(): void
     {
         $office = Office::factory()->create();
         $user = User::factory()->create();
@@ -137,10 +130,10 @@ class PurchaseRequestSchemaTest extends TestCase
         ])->pr_number);
 
         $this->assertCount(25, $numbers->unique());
-        $this->assertSame(
-            range(1, 25),
-            $numbers->map(fn (string $number): int => (int) substr($number, -4))->all()
-        );
+        $this->assertTrue($numbers->every(fn (string $number): bool => str_starts_with($number, 'DRAFT-')));
+        $this->assertDatabaseMissing('purchase_request_number_sequences', [
+            'month' => now()->format('Ym'),
+        ]);
     }
 
     public function test_sequence_row_is_locked_during_transactional_allocation(): void

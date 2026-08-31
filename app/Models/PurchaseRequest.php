@@ -2,12 +2,14 @@
 
 namespace App\Models;
 
+use App\Enums\PurchaseRequestStatus;
 use App\Models\Concerns\OfficeScoped;
-use App\Services\PurchaseRequestNumberService;
+use App\Services\PurchaseRequestTotalCalculator;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -15,20 +17,21 @@ class PurchaseRequest extends Model
 {
     use HasFactory, OfficeScoped;
 
-    public const STATUS_DRAFT = 'draft';
+    public const STATUS_DRAFT = PurchaseRequestStatus::Draft->value;
 
-    public const STATUS_SUBMITTED = 'submitted';
+    public const STATUS_SUBMITTED = PurchaseRequestStatus::Submitted->value;
 
-    public const STATUS_APPROVED = 'approved';
+    public const STATUS_APPROVED = PurchaseRequestStatus::Approved->value;
 
-    public const STATUS_REJECTED = 'rejected';
+    public const STATUS_REJECTED = PurchaseRequestStatus::Rejected->value;
 
-    public const STATUS_RETURNED = 'returned';
+    public const STATUS_RETURNED = PurchaseRequestStatus::Returned->value;
 
-    public const STATUS_COMPLETED = 'completed';
+    public const STATUS_COMPLETED = PurchaseRequestStatus::Completed->value;
 
-    public const STATUS_CANCELLED = 'cancelled';
+    public const STATUS_CANCELLED = PurchaseRequestStatus::Cancelled->value;
 
+    /** @var list<string> */
     public const STATUSES = [
         self::STATUS_DRAFT,
         self::STATUS_SUBMITTED,
@@ -38,6 +41,9 @@ class PurchaseRequest extends Model
         self::STATUS_COMPLETED,
         self::STATUS_CANCELLED,
     ];
+
+    /** @var list<string> */
+    public const DRAFT_PRIORITIES = ['low', 'normal', 'high', 'urgent'];
 
     protected $fillable = [
         'pr_number',
@@ -50,35 +56,48 @@ class PurchaseRequest extends Model
         'category_id',
         'title',
         'notes',
+        'reason',
         'required_date',
+        'priority',
         'status',
         'total_amount',
     ];
 
     protected static function booted(): void
     {
+        static::saving(function (self $model): void {
+            $model->status ??= self::STATUS_DRAFT;
+            $status = PurchaseRequestStatus::tryFrom((string) $model->getAttribute('status'));
+
+            if ($status === null) {
+                throw ValidationException::withMessages([
+                    'status' => 'The purchase request status is invalid.',
+                ]);
+            }
+
+            if ($model->exists && $model->isDirty('pr_number')) {
+                throw new \LogicException('Purchase request numbers are assigned by the lifecycle service.');
+            }
+        });
+
         static::creating(function (self $model): void {
-            if ($model->category_id !== null && ! self::categoryIsAvailableForNewRequest($model->category_id)) {
+            if ($model->category_id !== null && ! self::categoryIsAvailableForNewRequest((int) $model->category_id)) {
                 throw ValidationException::withMessages([
                     'category_id' => 'The selected procurement category is inactive and cannot be used for a new purchase request.',
                 ]);
             }
 
-            if ($model->status === null) {
-                $model->status = self::STATUS_DRAFT;
-            }
-
-            // Header totals are derived exclusively from persisted item lines.
-            // Never retain a client-provided value during initial creation.
-            $model->total_amount = 0;
-
-            // Assign the server-side sequential number at first persist.
-            // A client-supplied number is never accepted.
-            $model->pr_number = app(PurchaseRequestNumberService::class)->next();
+            $model->status ??= self::STATUS_DRAFT;
+            $model->total_amount = '0.00';
+            $model->pr_number = null;
 
             if ($model->office_id === null) {
                 throw new \LogicException('purchase_requests.office_id is required (office scoping).');
             }
+        });
+
+        static::created(function (self $model): void {
+            $model->forceFill(['pr_number' => 'DRAFT-'.$model->getKey()])->saveQuietly();
         });
     }
 
@@ -148,29 +167,30 @@ class PurchaseRequest extends Model
         return $this->hasMany(PurchaseRequestFieldValue::class, 'purchase_request_id');
     }
 
-    /**
-     * Server-side total: sum of the item line totals.
-     * Never trust client-sent totals.
-     */
-    public function recalculateTotal(): void
+    public function attachments(): MorphMany
     {
-        $this->forceFill(['total_amount' => (string) $this->items()->sum('line_total')])->saveQuietly();
+        return $this->morphMany(Attachment::class, 'attachable');
+    }
+
+    public function isDraft(): bool
+    {
+        return $this->status === self::STATUS_DRAFT;
     }
 
     /**
-     * Recalculate line totals and the header total inside a transaction.
+     * Recalculate the header from persisted item lines.
+     */
+    public function recalculateTotal(): void
+    {
+        app(PurchaseRequestTotalCalculator::class)->recalculateHeader($this);
+    }
+
+    /**
+     * Recalculate all persisted item and header totals atomically.
      */
     public function syncTotals(): void
     {
-        DB::transaction(function (): void {
-            $this->items->each(function (PurchaseRequestItem $item): void {
-                $item->calculateLineTotal();
-                $item->save();
-            });
-
-            $this->recalculateTotal();
-            $this->save();
-        });
+        app(PurchaseRequestTotalCalculator::class)->sync($this);
     }
 
     private static function categoryIsAvailableForNewRequest(int $categoryId): bool
