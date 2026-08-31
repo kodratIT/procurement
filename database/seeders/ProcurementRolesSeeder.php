@@ -18,6 +18,7 @@ class ProcurementRolesSeeder extends Seeder
             ProcurementPermissions::CREATE,
             ProcurementPermissions::UPDATE,
             ProcurementPermissions::SUBMIT,
+            ProcurementPermissions::RECEIVE,
         ],
         'Pengadaan' => [
             ProcurementPermissions::VIEW,
@@ -25,12 +26,14 @@ class ProcurementRolesSeeder extends Seeder
             ProcurementPermissions::UPDATE,
             ProcurementPermissions::APPROVE,
             ProcurementPermissions::MANAGE_MASTER_DATA,
+            ProcurementPermissions::RECEIVE,
         ],
         'Keuangan' => [
             ProcurementPermissions::VIEW,
             ProcurementPermissions::MANAGE_FINANCE,
             ProcurementPermissions::APPROVE,
             ProcurementPermissions::EXPORT,
+            ProcurementPermissions::CORRECT_RECEIPT,
         ],
         'Manager' => [
             ProcurementPermissions::VIEW,
@@ -47,6 +50,8 @@ class ProcurementRolesSeeder extends Seeder
             ProcurementPermissions::EXPORT,
             ProcurementPermissions::MANAGE_MASTER_DATA,
             ProcurementPermissions::MANAGE_FINANCE,
+            ProcurementPermissions::RECEIVE,
+            ProcurementPermissions::CORRECT_RECEIPT,
             ProcurementPermissions::MANAGE_USERS,
             ProcurementPermissions::MANAGE_ROLES,
         ],

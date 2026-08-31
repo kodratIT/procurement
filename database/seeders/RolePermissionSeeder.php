@@ -23,23 +23,28 @@ class RolePermissionSeeder extends Seeder
             ProcurementPermissions::EXPORT,
             ProcurementPermissions::MANAGE_MASTER_DATA,
             ProcurementPermissions::MANAGE_FINANCE,
+            ProcurementPermissions::RECEIVE,
+            ProcurementPermissions::CORRECT_RECEIPT,
             ProcurementPermissions::MANAGE_USERS,
             ProcurementPermissions::MANAGE_ROLES,
         ],
         'Operasional' => [
             ProcurementPermissions::VIEW,
             ProcurementPermissions::CREATE,
+            ProcurementPermissions::RECEIVE,
         ],
         'Pengadaan' => [
             ProcurementPermissions::VIEW,
             ProcurementPermissions::CREATE,
             ProcurementPermissions::UPDATE,
             ProcurementPermissions::MANAGE_MASTER_DATA,
+            ProcurementPermissions::RECEIVE,
         ],
         'Keuangan' => [
             ProcurementPermissions::VIEW,
             ProcurementPermissions::MANAGE_FINANCE,
             ProcurementPermissions::EXPORT,
+            ProcurementPermissions::CORRECT_RECEIPT,
         ],
         'Manager' => [
             ProcurementPermissions::VIEW,

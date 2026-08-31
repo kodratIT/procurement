@@ -24,6 +24,10 @@ final class ProcurementPermissions
 
     public const MANAGE_FINANCE = 'procurement.manage-finance';
 
+    public const RECEIVE = 'procurement.receive';
+
+    public const CORRECT_RECEIPT = 'procurement.correct-receipt';
+
     public const MANAGE_USERS = 'procurement.manage-users';
 
     public const MANAGE_ROLES = 'procurement.manage-roles';
@@ -41,6 +45,8 @@ final class ProcurementPermissions
             self::EXPORT,
             self::MANAGE_MASTER_DATA,
             self::MANAGE_FINANCE,
+            self::RECEIVE,
+            self::CORRECT_RECEIPT,
             self::MANAGE_USERS,
             self::MANAGE_ROLES,
         ];
