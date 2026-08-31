@@ -23,6 +23,8 @@ class PurchaseRequest extends Model
 
     public const STATUS_PROCUREMENT_REVIEW = PurchaseRequestStatus::ProcurementReview->value;
 
+    public const STATUS_PENDING_APPROVAL = PurchaseRequestStatus::PendingApproval->value;
+
     public const STATUS_APPROVED = PurchaseRequestStatus::Approved->value;
 
     public const STATUS_REJECTED = PurchaseRequestStatus::Rejected->value;
@@ -38,6 +40,7 @@ class PurchaseRequest extends Model
         self::STATUS_DRAFT,
         self::STATUS_SUBMITTED,
         self::STATUS_PROCUREMENT_REVIEW,
+        self::STATUS_PENDING_APPROVAL,
         self::STATUS_APPROVED,
         self::STATUS_REJECTED,
         self::STATUS_RETURNED,

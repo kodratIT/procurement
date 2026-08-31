@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Validation\ValidationException;
 
 class ApprovalInstance extends Model
 {
@@ -28,6 +29,38 @@ class ApprovalInstance extends Model
         'submitted_at',
         'context',
     ];
+
+    protected static function booted(): void
+    {
+        static::updating(function (self $instance): void {
+            $snapshotFields = [
+                'purchase_request_id',
+                'workflow_version_id',
+                'workflow_reference',
+                'workflow_version',
+                'requester_id',
+                'submitted_by_id',
+                'office_id',
+                'branch_id',
+                'department_id',
+                'cost_center_id',
+                'submitted_at',
+                'context',
+            ];
+
+            if ($instance->isDirty($snapshotFields)) {
+                throw ValidationException::withMessages([
+                    'approval_instance' => 'Approval instance workflow and scope snapshot is immutable.',
+                ]);
+            }
+        });
+
+        static::deleting(function (): void {
+            throw ValidationException::withMessages([
+                'approval_instance' => 'Approval instances cannot be deleted after creation.',
+            ]);
+        });
+    }
 
     protected function casts(): array
     {

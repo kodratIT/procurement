@@ -9,6 +9,7 @@ enum PurchaseRequestStatus: string
     case Draft = 'draft';
     case Submitted = 'submitted';
     case ProcurementReview = 'procurement_review';
+    case PendingApproval = 'pending_approval';
     case Approved = 'approved';
     case Rejected = 'rejected';
     case Returned = 'returned';

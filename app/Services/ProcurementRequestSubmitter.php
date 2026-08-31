@@ -20,8 +20,6 @@ final class ProcurementRequestSubmitter
         private readonly AccessContextService $context,
         private readonly DynamicFieldValidator $dynamicFields,
         private readonly PurchaseRequestNumberService $numbers,
-        private readonly WorkflowResolver $workflow,
-        private readonly ApprovalInstanceCreator $approvalInstances,
         private readonly PurchaseRequestTimeline $timeline,
         private readonly DomainTransaction $transaction,
     ) {}
@@ -41,11 +39,10 @@ final class ProcurementRequestSubmitter
         }
         $request->loadMissing(['category', 'items', 'fieldValues']);
         $this->validateFinalSubmission($request);
-        $resolution = $this->workflow->resolve($request, $submitter);
 
         return $this->transaction->run(
             'submit purchase request',
-            function () use ($request, $submitter, $resolution): PurchaseRequest {
+            function () use ($request, $submitter): PurchaseRequest {
                 $locked = PurchaseRequest::query()
                     ->lockForUpdate()
                     ->with(['category', 'items', 'fieldValues'])
@@ -67,7 +64,6 @@ final class ProcurementRequestSubmitter
 
                 PurchaseRequest::query()->withoutGlobalScopes()->whereKey($locked->getKey())->update($updates);
                 $locked->refresh();
-                $this->approvalInstances->create($locked, $submitter, $resolution);
                 $this->timeline->record(
                     $locked,
                     $submitter,
@@ -78,9 +74,8 @@ final class ProcurementRequestSubmitter
                     $fromStatus === PurchaseRequestStatus::Returned->value
                         ? 'Purchase request corrected and resubmitted.'
                         : 'Purchase request submitted for procurement review.',
-                    ['workflow' => $resolution['reference'], 'workflow_version' => $resolution['version'] ?? 1],
                 );
-                $this->audit($locked, $submitter, $fromStatus, $resolution);
+                $this->audit($locked, $submitter, $fromStatus);
 
                 return $locked->refresh();
             },
@@ -164,8 +159,7 @@ final class ProcurementRequestSubmitter
         }
     }
 
-    /** @param array<string, mixed> $resolution */
-    private function audit(PurchaseRequest $request, User $actor, string $fromStatus, array $resolution): void
+    private function audit(PurchaseRequest $request, User $actor, string $fromStatus): void
     {
         activity('procurement')
             ->performedOn($request)
@@ -178,9 +172,6 @@ final class ProcurementRequestSubmitter
                 'office_id' => $request->office_id,
                 'branch_id' => $request->branch_id,
                 'department_id' => $request->department_id,
-                'workflow' => $resolution['reference'],
-                'workflow_version' => $resolution['version'] ?? 1,
-                'context' => $resolution['context'] ?? [],
             ])
             ->log($fromStatus === PurchaseRequestStatus::Returned->value
                 ? 'Purchase request corrected and resubmitted'

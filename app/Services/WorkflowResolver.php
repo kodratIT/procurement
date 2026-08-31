@@ -26,15 +26,41 @@ use Illuminate\Validation\ValidationException;
 class WorkflowResolver
 {
     /**
-     * @return array{reference: string, version: int, workflow_version_id: int|null, context: array<string, mixed>, steps: list<array<string, mixed>>}
+     * @return array{reference: string, version: int, workflow_version_id: int|null, context: array<string, mixed>, steps: list<array<string, mixed>>, missing_approvers?: list<array<string, mixed>>}
      */
-    public function resolve(PurchaseRequest $request, User $submitter): array
+    public function resolve(PurchaseRequest $request, User $submitter, ?Workflow $workflow = null): array
     {
+        return $this->resolveInternal($request, $submitter, $workflow, true, false);
+    }
+
+    /**
+     * Return an explainable resolution without failing on an unresolved optional
+     * step. Required unresolved steps are reported for the handoff gate.
+     *
+     * @return array{reference: string, version: int, workflow_version_id: int|null, context: array<string, mixed>, steps: list<array<string, mixed>>, missing_approvers: list<array<string, mixed>>}
+     */
+    public function preview(PurchaseRequest $request, User $submitter, ?Workflow $workflow = null): array
+    {
+        return $this->resolveInternal($request, $submitter, $workflow, false, true);
+    }
+
+    /**
+     * @return array{reference: string, version: int, workflow_version_id: int|null, context: array<string, mixed>, steps: list<array<string, mixed>>, missing_approvers?: list<array<string, mixed>>}
+     */
+    private function resolveInternal(
+        PurchaseRequest $request,
+        User $submitter,
+        ?Workflow $workflow,
+        bool $failOnMissing,
+        bool $includeSkipped,
+    ): array {
         $request->loadMissing(['category', 'requester', 'costCenter']);
-        $reference = $request->category?->workflow_reference;
-        $configuredWorkflow = is_string($reference) && $reference !== ''
-            ? Workflow::query()->where('code', $reference)->where('is_active', true)->first()
-            : null;
+        $configuredWorkflow = $workflow?->is_active
+            ? $workflow
+            : (is_string($request->category?->workflow_reference) && $request->category->workflow_reference !== ''
+                ? Workflow::query()->where('code', $request->category->workflow_reference)->where('is_active', true)->first()
+                : null);
+        $reference = $configuredWorkflow?->code ?? $request->category?->workflow_reference;
         $activeVersion = $configuredWorkflow?->activeVersion();
 
         if ($activeVersion !== null) {
@@ -59,15 +85,35 @@ class WorkflowResolver
         }
 
         $resolvedSteps = [];
+        $missingApprovers = [];
         foreach ($steps as $step) {
-            if (! $step instanceof WorkflowStep || ! $this->conditionsMatch($step, $request)) {
+            if (! $step instanceof WorkflowStep) {
                 continue;
             }
 
-            $resolvedSteps[] = $this->resolveStep($step, $request, $submitter, $context);
+            if (! $this->conditionsMatch($step, $request)) {
+                if ($includeSkipped) {
+                    $resolvedSteps[] = $this->skippedStep($step);
+                }
+
+                continue;
+            }
+
+            try {
+                $resolvedSteps[] = $this->resolveStep($step, $request, $submitter, $context);
+            } catch (ValidationException $exception) {
+                $explanation = $this->unresolvedStep($step, $exception);
+                $missingApprovers[] = $explanation;
+                if ($failOnMissing) {
+                    throw $exception;
+                }
+                if ($includeSkipped || $step->is_required) {
+                    $resolvedSteps[] = $explanation;
+                }
+            }
         }
 
-        if ($resolvedSteps === []) {
+        if ($resolvedSteps === [] && $failOnMissing) {
             throw ValidationException::withMessages([
                 'workflow' => 'No active approval workflow step applies to this purchase request.',
             ]);
@@ -79,6 +125,7 @@ class WorkflowResolver
             'workflow_version_id' => $activeVersion?->getKey(),
             'context' => $context,
             'steps' => $resolvedSteps,
+            'missing_approvers' => $missingApprovers,
         ];
     }
 
@@ -167,11 +214,18 @@ class WorkflowResolver
         $scopeSource = $selected['scope_source'];
         $stepKey = (string) ($settings['step_key'] ?? Str::snake($step->name));
 
+        $conditions = $this->conditionSnapshot($step);
+
         return [
             'step_order' => (int) $step->sequence,
             'step_key' => $stepKey,
             'label' => $step->name,
+            'step_type' => $step->step_type?->value ?? (string) $step->step_type,
+            'approval_mode' => $step->approval_mode?->value ?? (string) $step->approval_mode,
             'resolver_type' => $resolverType,
+            'is_required' => (bool) $step->is_required,
+            'applicable' => true,
+            'conditions' => $conditions,
             'approver_id' => $user->getKey(),
             'user_id' => $user->getKey(),
             'user' => [
@@ -199,10 +253,66 @@ class WorkflowResolver
                 'fallback_result' => $fallbackResult,
                 'delegation_id' => $selected['delegation_id'],
                 'delegated_from_user_id' => $selected['delegated_from_user_id'],
+                'conditions' => $conditions,
             ],
             'scope_source' => $scopeSource,
             'fallback_result' => $fallbackResult,
         ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function skippedStep(WorkflowStep $step): array
+    {
+        $settings = is_array($step->settings) ? $step->settings : [];
+        $conditions = $this->conditionSnapshot($step);
+
+        return [
+            'step_order' => (int) $step->sequence,
+            'step_key' => (string) (($settings['step_key'] ?? null) ?: Str::snake($step->name)),
+            'label' => $step->name,
+            'step_type' => $step->step_type?->value ?? (string) $step->step_type,
+            'approval_mode' => $step->approval_mode?->value ?? (string) $step->approval_mode,
+            'resolver_type' => (string) ($step->resolver_type ?? 'none'),
+            'is_required' => (bool) $step->is_required,
+            'applicable' => false,
+            'conditions' => $conditions,
+            'status' => 'skipped',
+            'approver_id' => null,
+            'approver_name' => null,
+            'approver_role' => null,
+            'scope_source' => null,
+            'context' => ['conditions' => $conditions],
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function unresolvedStep(WorkflowStep $step, ValidationException $exception): array
+    {
+        return [
+            ...$this->skippedStep($step),
+            'applicable' => true,
+            'status' => 'unresolved',
+            'error' => $exception->errors()['workflow'][0] ?? 'No eligible approver is configured.',
+        ];
+    }
+
+    /** @return list<array{field_key: string, operator: string, value: mixed}> */
+    private function conditionSnapshot(WorkflowStep $step): array
+    {
+        return $step->conditions
+            ->map(fn ($condition): array => [
+                'field_key' => $condition->field_key,
+                'operator' => $condition->operator instanceof WorkflowConditionOperator
+                    ? $condition->operator->value
+                    : (string) $condition->operator,
+                'value' => $condition->value,
+            ])
+            ->values()
+            ->all();
     }
 
     /**

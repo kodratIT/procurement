@@ -48,6 +48,12 @@ final class PurchaseRequestPolicy
             && $this->authorization->canUpdate($user, $request, true);
     }
 
+    public function handoff(User $user, PurchaseRequest $request): bool
+    {
+        return $request->status === PurchaseRequest::STATUS_PROCUREMENT_REVIEW
+            && $this->authorization->canUpdate($user, $request, true);
+    }
+
     public function forward(User $user, PurchaseRequest $request): bool
     {
         return $request->status === PurchaseRequest::STATUS_SUBMITTED

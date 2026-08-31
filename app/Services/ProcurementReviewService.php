@@ -43,6 +43,8 @@ final class ProcurementReviewService
         private readonly PurchaseRequestTotalCalculator $totals,
         private readonly DomainTransaction $transaction,
         private readonly PurchaseRequestTimeline $timeline,
+        private readonly WorkflowPreviewService $workflowPreview,
+        private readonly ApprovalInstanceCreator $approvalInstances,
     ) {}
 
     /**
@@ -167,6 +169,93 @@ final class ProcurementReviewService
                 'actor_id' => $reviewer->getKey(),
             ],
         );
+    }
+
+    /**
+     * Resolve and hand a reviewed purchase request to its approval workflow.
+     */
+    public function handoffToApproval(PurchaseRequest $request, ?User $reviewer = null): PurchaseRequest
+    {
+        $reviewer = $this->activeReviewer($reviewer);
+        Gate::forUser($reviewer)->authorize('handoff', $request);
+        $this->assertReviewContext($request, $reviewer);
+
+        if ($request->status !== PurchaseRequestStatus::ProcurementReview->value) {
+            throw ValidationException::withMessages([
+                'status' => 'Only a purchase request in procurement review can be handed off to approval.',
+            ]);
+        }
+
+        $preview = $this->workflowPreview->preview($request, $reviewer);
+        $this->assertHandoffPreview($preview);
+
+        return $this->transaction->run(
+            'handoff purchase request to approval',
+            function () use ($request, $reviewer, $preview): PurchaseRequest {
+                $locked = PurchaseRequest::query()
+                    ->withoutGlobalScopes()
+                    ->lockForUpdate()
+                    ->with(['category', 'requester', 'office', 'branch', 'department', 'costCenter.office', 'items'])
+                    ->findOrFail($request->getKey());
+
+                if ($locked->status !== PurchaseRequestStatus::ProcurementReview->value) {
+                    throw ValidationException::withMessages([
+                        'status' => 'Only a purchase request in procurement review can be handed off to approval.',
+                    ]);
+                }
+
+                if ($locked->approvalInstances()->whereIn('status', ['pending', 'in_progress'])->exists()) {
+                    throw ValidationException::withMessages([
+                        'workflow' => 'This purchase request already has an active approval instance.',
+                    ]);
+                }
+
+                $instance = $this->approvalInstances->create($locked, $reviewer, $preview['resolution']);
+                $fromStatus = $locked->status;
+                PurchaseRequest::query()->withoutGlobalScopes()->whereKey($locked->getKey())->update([
+                    'status' => PurchaseRequestStatus::PendingApproval->value,
+                    'updated_at' => now(),
+                ]);
+                $locked->refresh();
+                $this->timeline->record(
+                    $locked,
+                    $reviewer,
+                    $fromStatus,
+                    PurchaseRequestStatus::PendingApproval->value,
+                    'approval_handoff',
+                    'handoff',
+                    'Purchase request handed off to approval.',
+                    [
+                        'approval_instance_id' => $instance->getKey(),
+                        'workflow' => $preview['workflow'],
+                    ],
+                );
+                activity('procurement')
+                    ->performedOn($locked)
+                    ->causedBy($reviewer)
+                    ->event('approval_handoff')
+                    ->withProperties([
+                        'before' => ['status' => $fromStatus],
+                        'after' => ['status' => PurchaseRequestStatus::PendingApproval->value],
+                        'approval_instance_id' => $instance->getKey(),
+                        'workflow' => $preview['workflow'],
+                        'steps' => $preview['steps'],
+                    ])
+                    ->log('Purchase request handed off to approval');
+
+                return $locked->load('approvalInstances.steps');
+            },
+            [
+                'purchase_request_id' => $request->getKey(),
+                'office_id' => $request->office_id,
+                'actor_id' => $reviewer->getKey(),
+            ],
+        );
+    }
+
+    public function forwardToApproval(PurchaseRequest $request, ?User $reviewer = null): PurchaseRequest
+    {
+        return $this->handoffToApproval($request, $reviewer);
     }
 
     /**
@@ -378,6 +467,21 @@ final class ProcurementReviewService
         }
 
         return $reviewer;
+    }
+
+    /** @param array<string, mixed> $preview */
+    private function assertHandoffPreview(array $preview): void
+    {
+        if (($preview['can_handoff'] ?? false) === true) {
+            return;
+        }
+
+        $errors = array_values(array_filter($preview['errors'] ?? [], 'is_string'));
+        throw ValidationException::withMessages([
+            'workflow' => $errors !== []
+                ? 'Required approver configuration is incomplete: '.implode(' ', $errors)
+                : 'Required approver configuration is incomplete for this purchase request.',
+        ]);
     }
 
     private function authorizeReview(PurchaseRequest $request, User $reviewer): void

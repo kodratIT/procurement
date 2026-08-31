@@ -13,6 +13,7 @@ use App\Models\PurchaseRequest;
 use App\Models\User;
 use App\Services\AccessContextService;
 use App\Services\ProcurementReviewService;
+use App\Services\WorkflowPreviewService;
 use App\Support\ProcurementPermissions;
 use Filament\Actions\Action;
 use Filament\Actions\EditAction;
@@ -187,6 +188,25 @@ final class ProcurementReviewResource extends Resource
                     ->authorize('forward')
                     ->action(fn (PurchaseRequest $record, array $data): PurchaseRequest => app(ProcurementReviewService::class)
                         ->forward($record, (string) ($data['reason'] ?? ''))),
+                Action::make('preview_workflow')
+                    ->label('Preview approval')
+                    ->icon(Heroicon::OutlinedListBullet)
+                    ->modalHeading(fn (PurchaseRequest $record): string => 'Preview approval '.$record->pr_number)
+                    ->modalContent(fn (PurchaseRequest $record): View => view(
+                        'filament.workflow-preview',
+                        ['preview' => app(WorkflowPreviewService::class)->preview($record)],
+                    ))
+                    ->modalSubmitAction(false)
+                    ->modalCancelActionLabel('Tutup')
+                    ->authorize('view'),
+                Action::make('handoff')
+                    ->label('Serahkan ke approval')
+                    ->icon(Heroicon::OutlinedArrowRight)
+                    ->color('primary')
+                    ->requiresConfirmation()
+                    ->authorize('handoff')
+                    ->action(fn (PurchaseRequest $record): PurchaseRequest => app(ProcurementReviewService::class)
+                        ->handoffToApproval($record)),
             ]);
     }
 
