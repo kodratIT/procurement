@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
+use App\Models\Branch;
 use App\Models\GoodsReceipt;
 use App\Models\Office;
 use App\Models\PurchaseOrder;
@@ -44,6 +45,134 @@ final class GoodsReceiptTest extends TestCase
         $this->assertSame('5.00', $service->receivedQuantities($order)[$line->id]);
         $this->assertSame('0.00', $service->remainingQuantities($order)[$line->id]);
         $this->assertSame($actor->id, $partial->receiver_id);
+    }
+
+    public function test_status_requires_every_purchase_order_line_for_completion(): void
+    {
+        [$actor, $order, $line] = $this->receivableOrder(2);
+        $order->forceFill(['status' => PurchaseOrder::STATUS_DRAFT])->saveQuietly();
+        $secondRequestItem = $order->purchaseRequest->items()->create([
+            'item_name' => 'Shoes',
+            'quantity' => 3,
+            'unit_name' => 'pairs',
+            'unit_price' => 150,
+        ]);
+        $secondLine = $order->items()->create([
+            'purchase_request_item_id' => $secondRequestItem->id,
+            'item_name' => 'Shoes',
+            'quantity' => 3,
+            'unit_name' => 'pairs',
+            'unit_price' => 150,
+        ]);
+        $order->forceFill(['status' => PurchaseOrder::STATUS_APPROVED])->saveQuietly();
+        $service = app(ReceivingService::class);
+
+        $partial = $service->record($order, [
+            'received_date' => '2026-08-31',
+            'lines' => [['purchase_order_item_id' => $line->id, 'quantity' => '2']],
+        ], $actor);
+        $this->assertSame(GoodsReceipt::STATUS_PARTIALLY_RECEIVED, $partial->status);
+        $this->assertSame(GoodsReceipt::STATUS_PARTIALLY_RECEIVED, $service->status($order));
+
+        $complete = $service->record($order, [
+            'received_date' => '2026-09-01',
+            'lines' => [['purchase_order_item_id' => $secondLine->id, 'quantity' => '3']],
+        ], $actor);
+
+        $this->assertSame(GoodsReceipt::STATUS_COMPLETE, $complete->status);
+        $this->assertSame(GoodsReceipt::STATUS_COMPLETE, $service->status($order));
+        $this->assertSame('2.00', $service->receivedQuantities($order)[$line->id]);
+        $this->assertSame('3.00', $service->receivedQuantities($order)[$secondLine->id]);
+    }
+
+    public function test_receipts_are_rejected_for_non_receivable_purchase_orders(): void
+    {
+        [$actor, $order, $line] = $this->receivableOrder(1, PurchaseOrder::STATUS_DRAFT);
+
+        try {
+            app(ReceivingService::class)->record($order, [
+                'received_date' => '2026-08-31',
+                'lines' => [['purchase_order_item_id' => $line->id, 'quantity' => 1]],
+            ], $actor);
+            $this->fail('A draft purchase order must not accept receipts.');
+        } catch (ValidationException $exception) {
+            $this->assertSame(
+                ['Only an approved or issued purchase order can receive goods or services.'],
+                $exception->errors()['purchase_order'],
+            );
+        }
+
+        $this->assertDatabaseCount('goods_receipts', 0);
+        $this->assertDatabaseCount('goods_receipt_items', 0);
+    }
+
+    public function test_receipt_authorization_uses_the_locked_purchase_order_scope(): void
+    {
+        [$actor, $order, $line] = $this->receivableOrder(1);
+        $staleOrder = $order->fresh(['items']);
+        $otherOffice = Office::factory()->create();
+        $order->forceFill(['office_id' => $otherOffice->id])->saveQuietly();
+
+        $this->expectException(AuthorizationException::class);
+        app(ReceivingService::class)->record($staleOrder, [
+            'received_date' => '2026-08-31',
+            'lines' => [['purchase_order_item_id' => $line->id, 'quantity' => 1]],
+        ], $actor);
+    }
+
+    public function test_receiver_must_match_the_purchase_order_organizational_scope(): void
+    {
+        [$actor, $order, $line] = $this->receivableOrder(1);
+        $branch = Branch::factory()->create(['office_id' => $order->office_id]);
+        $otherBranch = Branch::factory()->create(['office_id' => $order->office_id]);
+        $order->forceFill(['branch_id' => $branch->id])->saveQuietly();
+        $receiver = User::factory()->create();
+        $role = Role::query()->where('name', 'Pengadaan')->firstOrFail();
+        UserAssignment::factory()->create([
+            'user_id' => $receiver->id,
+            'office_id' => $order->office_id,
+            'branch_id' => $otherBranch->id,
+            'role_id' => $role->id,
+            'role' => $role->name,
+            'valid_from' => now()->subDay()->toDateString(),
+            'is_primary' => true,
+        ]);
+
+        try {
+            app(ReceivingService::class)->record($order, [
+                'received_date' => '2026-08-31',
+                'receiver_id' => $receiver->id,
+                'lines' => [['purchase_order_item_id' => $line->id, 'quantity' => 1]],
+            ], $actor);
+            $this->fail('A receiver outside the purchase order scope must be rejected.');
+        } catch (ValidationException $exception) {
+            $this->assertSame(
+                ['The receiver must have an active assignment in the purchase order scope.'],
+                $exception->errors()['receiver_id'],
+            );
+        }
+
+        $this->assertDatabaseCount('goods_receipts', 0);
+    }
+
+    public function test_receipt_line_ids_must_be_integers(): void
+    {
+        [$actor, $order, $line] = $this->receivableOrder(1);
+
+        try {
+            app(ReceivingService::class)->record($order, [
+                'received_date' => '2026-08-31',
+                'lines' => [['purchase_order_item_id' => $line->id.'.5', 'quantity' => 1]],
+            ], $actor);
+            $this->fail('A fractional line id must be rejected.');
+        } catch (ValidationException $exception) {
+            $this->assertSame(
+                ['Each receipt line must identify a purchase order item.'],
+                $exception->errors()['lines.0.purchase_order_item_id'],
+            );
+        }
+
+        $this->assertDatabaseCount('goods_receipts', 0);
     }
 
     public function test_purchase_order_without_receipts_is_not_received(): void

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Exceptions\DomainMutationException;
 use App\Models\Attachment;
 use App\Models\GoodsReceipt;
 use App\Models\GoodsReceiptItem;
@@ -14,6 +15,7 @@ use App\Support\DomainTransaction;
 use App\Support\ProcurementPermissions;
 use Carbon\Carbon;
 use Illuminate\Auth\Access\AuthorizationException;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Validation\ValidationException;
 
@@ -35,20 +37,29 @@ final class ReceivingService
     public function record(PurchaseOrder $order, array $data, ?User $actor = null): GoodsReceipt
     {
         $actor = $this->activeActor($actor);
-        $this->authorization->authorizeMutation($actor, $order, ProcurementPermissions::RECEIVE);
 
-        return $this->transaction->run(
-            'record purchase order receipt',
-            function () use ($order, $data, $actor): GoodsReceipt {
-                $lockedOrder = PurchaseOrder::query()->lockForUpdate()->findOrFail($order->getKey());
-                $this->assertReceivable($lockedOrder);
-                $lines = $this->validatedLines($lockedOrder, $data['lines'] ?? null);
-                $receiver = $this->receiver($lockedOrder, $data['receiver_id'] ?? $actor->getKey());
+        try {
+            return $this->transaction->run(
+                'record purchase order receipt',
+                function () use ($order, $data, $actor): GoodsReceipt {
+                    $lockedOrder = PurchaseOrder::query()->lockForUpdate()->findOrFail($order->getKey());
+                    $this->authorization->authorizeMutation($actor, $lockedOrder, ProcurementPermissions::RECEIVE);
+                    $this->assertReceivable($lockedOrder);
+                    $lines = $this->validatedLines($lockedOrder, $data['lines'] ?? null);
+                    $receiver = $this->receiver($lockedOrder, $data['receiver_id'] ?? $actor->getKey());
 
-                return $this->createLockedReceipt($lockedOrder, $data, $lines, $receiver, $actor);
-            },
-            ['purchase_order_id' => $order->getKey(), 'actor_id' => $actor->getKey()],
-        );
+                    return $this->createLockedReceipt($lockedOrder, $data, $lines, $receiver, $actor);
+                },
+                ['purchase_order_id' => $order->getKey(), 'actor_id' => $actor->getKey()],
+            );
+        } catch (DomainMutationException $exception) {
+            $previous = $exception->getPrevious();
+            if ($previous instanceof AuthorizationException) {
+                throw $previous;
+            }
+
+            throw $exception;
+        }
     }
 
     /** @param array<string, mixed> $data */
@@ -62,32 +73,40 @@ final class ReceivingService
     {
         $actor = $this->activeActor($actor);
         $receipt->loadMissing('purchaseOrder');
-        $order = $receipt->purchaseOrder;
-        if (! $order instanceof PurchaseOrder) {
+        if (! $receipt->purchaseOrder instanceof PurchaseOrder) {
             throw ValidationException::withMessages(['goods_receipt' => 'The receipt purchase order could not be found.']);
         }
-        $this->authorization->authorizeMutation($actor, $order, ProcurementPermissions::CORRECT_RECEIPT);
         $this->assertReason($reason);
 
-        return $this->transaction->run(
-            'correct purchase order receipt',
-            function () use ($receipt, $data, $reason, $actor): GoodsReceipt {
-                $lockedReceipt = GoodsReceipt::query()->lockForUpdate()->findOrFail($receipt->getKey());
-                $lockedOrder = PurchaseOrder::query()->lockForUpdate()->findOrFail($lockedReceipt->purchase_order_id);
-                $this->assertReceivable($lockedOrder);
-                if (GoodsReceipt::query()->where('correction_of_id', $lockedReceipt->getKey())->exists()) {
-                    throw ValidationException::withMessages(['goods_receipt' => 'This receipt has already been corrected.']);
-                }
+        try {
+            return $this->transaction->run(
+                'correct purchase order receipt',
+                function () use ($receipt, $data, $reason, $actor): GoodsReceipt {
+                    $lockedReceipt = GoodsReceipt::query()->lockForUpdate()->findOrFail($receipt->getKey());
+                    $lockedOrder = PurchaseOrder::query()->lockForUpdate()->findOrFail($lockedReceipt->purchase_order_id);
+                    $this->authorization->authorizeMutation($actor, $lockedOrder, ProcurementPermissions::CORRECT_RECEIPT);
+                    $this->assertReceivable($lockedOrder);
+                    if (GoodsReceipt::query()->where('correction_of_id', $lockedReceipt->getKey())->exists()) {
+                        throw ValidationException::withMessages(['goods_receipt' => 'This receipt has already been corrected.']);
+                    }
 
-                $lines = $this->validatedLines($lockedOrder, $data['lines'] ?? null, [$lockedReceipt->getKey()]);
-                $receiver = $this->receiver($lockedOrder, $data['receiver_id'] ?? $actor->getKey());
-                $data['correction_of_id'] = $lockedReceipt->getKey();
-                $data['correction_reason'] = trim($reason);
+                    $lines = $this->validatedLines($lockedOrder, $data['lines'] ?? null, [$lockedReceipt->getKey()]);
+                    $receiver = $this->receiver($lockedOrder, $data['receiver_id'] ?? $actor->getKey());
+                    $data['correction_of_id'] = $lockedReceipt->getKey();
+                    $data['correction_reason'] = trim($reason);
 
-                return $this->createLockedReceipt($lockedOrder, $data, $lines, $receiver, $actor, [$lockedReceipt->getKey()]);
-            },
-            ['goods_receipt_id' => $receipt->getKey(), 'actor_id' => $actor->getKey()],
-        );
+                    return $this->createLockedReceipt($lockedOrder, $data, $lines, $receiver, $actor, [$lockedReceipt->getKey()]);
+                },
+                ['goods_receipt_id' => $receipt->getKey(), 'actor_id' => $actor->getKey()],
+            );
+        } catch (DomainMutationException $exception) {
+            $previous = $exception->getPrevious();
+            if ($previous instanceof AuthorizationException) {
+                throw $previous;
+            }
+
+            throw $exception;
+        }
     }
 
     /** @param array<string, mixed> $data */
@@ -122,7 +141,7 @@ final class ReceivingService
         $order = $order instanceof PurchaseOrder ? $order : PurchaseOrder::query()->findOrFail($order);
         $received = $this->receivedTotals($order);
 
-        return $order->items->mapWithKeys(fn (PurchaseOrderItem $item): array => [
+        return $order->items()->get()->mapWithKeys(fn (PurchaseOrderItem $item): array => [
             $item->getKey() => bcsub((string) $item->quantity, $received[$item->getKey()] ?? '0.00', 2),
         ])->all();
     }
@@ -136,11 +155,12 @@ final class ReceivingService
         ?User $actor = null,
     ): Attachment {
         $actor = $this->activeActor($actor);
-        $receipt->loadMissing('purchaseOrder');
+        $receipt->load('purchaseOrder');
         if (! $receipt->purchaseOrder instanceof PurchaseOrder) {
             throw ValidationException::withMessages(['goods_receipt' => 'The receipt purchase order could not be found.']);
         }
         $this->authorization->authorizeMutation($actor, $receipt->purchaseOrder, ProcurementPermissions::RECEIVE);
+        $this->assertReceivable($receipt->purchaseOrder);
         $type = $this->validateEvidenceType($type);
         $metadata = $this->validateMetadata($type, $metadata);
 
@@ -217,10 +237,12 @@ final class ReceivingService
         $seen = [];
 
         foreach (array_values($rawLines) as $index => $rawLine) {
-            if (! is_array($rawLine) || ! is_numeric($rawLine['purchase_order_item_id'] ?? null)) {
+            $rawItemId = is_array($rawLine) ? ($rawLine['purchase_order_item_id'] ?? null) : null;
+            if (! ((is_int($rawItemId) && $rawItemId > 0)
+                || (is_string($rawItemId) && preg_match('/\A[1-9]\d*\z/', $rawItemId) === 1))) {
                 throw ValidationException::withMessages(["lines.{$index}.purchase_order_item_id" => 'Each receipt line must identify a purchase order item.']);
             }
-            $itemId = (int) $rawLine['purchase_order_item_id'];
+            $itemId = (int) $rawItemId;
             if (isset($seen[$itemId]) || ! $items->has($itemId)) {
                 throw ValidationException::withMessages(["lines.{$index}" => 'The receipt line is not a unique item on this purchase order.']);
             }
@@ -261,7 +283,7 @@ final class ReceivingService
     {
         $hasReceived = false;
         $complete = true;
-        foreach ($order->items as $item) {
+        foreach ($order->items()->get() as $item) {
             $quantity = bcadd($received[$item->getKey()] ?? '0.00', $this->additionalQuantity($additional, (int) $item->getKey()), 2);
             $hasReceived = $hasReceived || bccomp($quantity, '0.00', 2) > 0;
             $complete = $complete && bccomp($quantity, (string) $item->quantity, 2) >= 0;
@@ -294,12 +316,31 @@ final class ReceivingService
 
     private function receiver(PurchaseOrder $order, mixed $receiverId): User
     {
-        if (! is_numeric($receiverId)) {
+        if (! ((is_int($receiverId) && $receiverId > 0)
+            || (is_string($receiverId) && preg_match('/\A[1-9]\d*\z/', $receiverId) === 1))) {
             throw ValidationException::withMessages(['receiver_id' => 'A receiver is required.']);
         }
+
         $receiver = User::query()->find((int) $receiverId);
-        if (! $receiver instanceof User || ! $receiver->is_active || ! $receiver->assignments()->currentlyActive()->where('office_id', $order->office_id)->exists()) {
-            throw ValidationException::withMessages(['receiver_id' => 'The receiver must have an active assignment in the purchase order office.']);
+        $assignmentQuery = $receiver?->assignments()
+            ->currentlyActive()
+            ->where('office_id', $order->office_id);
+
+        foreach (['branch_id', 'department_id'] as $column) {
+            $value = $order->{$column};
+            $assignmentQuery?->where(function (Builder $query) use ($column, $value): void {
+                if ($value === null) {
+                    $query->whereNull($column);
+
+                    return;
+                }
+
+                $query->whereNull($column)->orWhere($column, $value);
+            });
+        }
+
+        if (! $receiver instanceof User || ! $receiver->is_active || ! $assignmentQuery?->exists()) {
+            throw ValidationException::withMessages(['receiver_id' => 'The receiver must have an active assignment in the purchase order scope.']);
         }
 
         return $receiver;

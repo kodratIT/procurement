@@ -82,6 +82,59 @@ final class ReceiptAttachmentsTest extends TestCase
         $this->assertSame([], Storage::disk('private')->allFiles());
     }
 
+    public function test_photo_evidence_rejects_delivery_note_mime_types(): void
+    {
+        [$actor, $order, $line] = $this->context();
+        Storage::fake('private');
+        $receipt = app(ReceivingService::class)->record($order, [
+            'received_date' => '2026-08-31',
+            'lines' => [['purchase_order_item_id' => $line->id, 'quantity' => 1]],
+        ], $actor);
+
+        try {
+            app(ReceivingService::class)->attachEvidence(
+                $receipt,
+                UploadedFile::fake()->create('delivery-note.pdf', 1, 'application/pdf'),
+                'photo',
+                [],
+                $actor,
+            );
+            $this->fail('Photo evidence must reject PDF files.');
+        } catch (ValidationException $exception) {
+            $this->assertArrayHasKey('file', $exception->errors());
+        }
+
+        $this->assertDatabaseCount('attachments', 0);
+        $this->assertSame([], Storage::disk('private')->allFiles());
+    }
+
+    public function test_attachment_storage_rejects_a_non_private_configured_disk(): void
+    {
+        [$actor, $order, $line] = $this->context();
+        Storage::fake('private');
+        $receipt = app(ReceivingService::class)->record($order, [
+            'received_date' => '2026-08-31',
+            'lines' => [['purchase_order_item_id' => $line->id, 'quantity' => 1]],
+        ], $actor);
+        config(['filesystems.attachments.disk' => 'public']);
+
+        try {
+            app(ReceivingService::class)->attachEvidence(
+                $receipt,
+                UploadedFile::fake()->image('delivery.jpg'),
+                'photo',
+                [],
+                $actor,
+            );
+            $this->fail('Attachment storage must remain private.');
+        } catch (\RuntimeException $exception) {
+            $this->assertSame('Attachments must use the private disk.', $exception->getMessage());
+        }
+
+        $this->assertDatabaseCount('attachments', 0);
+        $this->assertSame([], Storage::disk('private')->allFiles());
+    }
+
     /** @return array{User, PurchaseOrder, PurchaseOrderItem} */
     private function context(): array
     {

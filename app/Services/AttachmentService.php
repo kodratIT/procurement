@@ -241,7 +241,12 @@ class AttachmentService
 
     private function disk(): string
     {
-        return (string) config('filesystems.attachments.disk', self::PRIVATE_DISK);
+        $disk = (string) config('filesystems.attachments.disk', self::PRIVATE_DISK);
+        if ($disk !== self::PRIVATE_DISK) {
+            throw new RuntimeException('Attachments must use the private disk.');
+        }
+
+        return $disk;
     }
 
     private function assertPersisted(Model $model, string $name): void
