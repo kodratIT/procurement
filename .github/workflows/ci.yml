@@ -3,6 +3,19 @@ on: [push, pull_request]
 jobs:
   test:
     runs-on: ubuntu-latest
+    env:
+      DB_CONNECTION: pgsql
+      DB_HOST: 127.0.0.1
+      DB_PORT: 5432
+      DB_DATABASE: testing
+      DB_USERNAME: laravel
+      DB_PASSWORD: password
+      CACHE_STORE: redis
+      QUEUE_CONNECTION: redis
+      REDIS_CLIENT: phpredis
+      REDIS_HOST: 127.0.0.1
+      REDIS_PORT: 6379
+
     services:
       postgres:
         image: postgres:16
@@ -11,18 +24,42 @@ jobs:
         options: >-
           --health-cmd="pg_isready -U laravel -d testing"
           --health-interval=10s --health-timeout=5s --health-retries=5
+      redis:
+        image: redis:7
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd="redis-cli ping"
+          --health-interval=10s --health-timeout=5s --health-retries=5
     steps:
       - uses: actions/checkout@v4
       - uses: shivammathur/setup-php@v2
-        with: { php-version: '8.4', extensions: mbstring, pdo_pgsql, tools: composer:v2 }
-      - run: composer install --no-interaction --prefer-dist
+        with: { php-version: '8.4', extensions: mbstring, pdo_pgsql, redis, tools: composer:v2 }
+      - uses: actions/setup-node@v4
+        with: { node-version: '22', cache: npm }
+      - run: composer install --no-interaction --prefer-dist --no-progress
+      - run: npm ci
+      - run: git diff --exit-code -- composer.lock package-lock.json
+      - run: npm run build
       - run: cp .env.example .env && php artisan key:generate
-      - run: vendor/bin/pint --test
-      - run: php artisan test
+      - run: composer validate --strict
+      - run: php artisan route:list && php artisan about
+      - run: php artisan config:cache && php artisan app:validate-environment
         env:
-          DB_CONNECTION: pgsql
-          DB_HOST: 127.0.0.1
-          DB_PORT: 5432
-          DB_DATABASE: testing
-          DB_USERNAME: laravel
-          DB_PASSWORD: password
+          KEYCLOAK_BASE_URL: https://keycloak.example.test
+          KEYCLOAK_REALM: umrah
+          KEYCLOAK_CLIENT_ID: procurement
+          KEYCLOAK_CLIENT_SECRET: ci-config-cache-only
+          KEYCLOAK_REDIRECT_URI: http://localhost:8000/auth/keycloak/callback
+          KEYCLOAK_POST_LOGOUT_REDIRECT_URI: http://localhost:8000
+      - run: php artisan config:clear
+      - run: git ls-files '*.php' -z | xargs -0 -n1 php -l
+      - run: vendor/bin/pint --test
+      - run: php artisan app:validate-environment
+        env:
+          KEYCLOAK_BASE_URL: https://keycloak.example.test
+          KEYCLOAK_REALM: umrah
+          KEYCLOAK_CLIENT_ID: procurement
+          KEYCLOAK_CLIENT_SECRET: ci-only-not-a-secret
+          KEYCLOAK_REDIRECT_URI: http://localhost:8000/auth/keycloak/callback
+          KEYCLOAK_POST_LOGOUT_REDIRECT_URI: http://localhost:8000
+      - run: php artisan test --testsuite=Feature

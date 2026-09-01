@@ -3,63 +3,124 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
-use App\Models\User;
+use App\Services\Auth\KeycloakClient;
+use App\Services\Auth\KeycloakUserProvisioner;
+use App\Support\KeycloakConfig;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
+use InvalidArgumentException;
+use RuntimeException;
+use Throwable;
 
 class KeycloakController extends Controller
 {
-    public function redirect(Request $request)
+    public function redirect(Request $request): RedirectResponse
     {
+        if (Auth::check()) {
+            return redirect('/admin');
+        }
+
+        try {
+            $config = KeycloakConfig::fromConfig();
+        } catch (InvalidArgumentException) {
+            abort(503, 'Keycloak is not configured.');
+        }
+
         $state = Str::random(64);
+        $nonce = Str::random(64);
         $verifier = rtrim(strtr(base64_encode(random_bytes(64)), '+/', '-_'), '=');
         $challenge = rtrim(strtr(base64_encode(hash('sha256', $verifier, true)), '+/', '-_'), '=');
-        $request->session()->put('keycloak.oauth', compact('state', 'verifier'));
-        $query = http_build_query([
-            'client_id' => config('keycloak.client_id'), 'redirect_uri' => config('keycloak.redirect_uri'),
-            'response_type' => 'code', 'scope' => implode(' ', config('keycloak.scopes')), 'state' => $state,
-            'code_challenge' => $challenge, 'code_challenge_method' => 'S256',
+
+        $request->session()->put('keycloak.oauth', [
+            'state' => $state,
+            'nonce' => $nonce,
+            'verifier' => $verifier,
+            'redirect_uri' => $config->redirectUri,
         ]);
 
-        return redirect(config('keycloak.base_url').'/realms/'.rawurlencode(config('keycloak.realm')).'/protocol/openid-connect/auth?'.$query);
+        $client = new KeycloakClient($config);
+
+        return redirect()->away($client->authorizationUrl($state, $nonce, $challenge));
     }
 
-    public function callback(Request $request)
+    public function callback(Request $request, KeycloakUserProvisioner $provisioner): RedirectResponse
     {
-        $oauth = $request->session()->pull('keycloak.oauth');
-        abort_unless($oauth && hash_equals($oauth['state'], (string) $request->string('state')), 419, 'Invalid OAuth state.');
-        abort_unless($request->filled('code'), 422, 'Authorization code is missing.');
-        $base = config('keycloak.base_url').'/realms/'.rawurlencode(config('keycloak.realm')).'/protocol/openid-connect';
-        $token = Http::asForm()->timeout(10)->post($base.'/token', array_filter([
-            'grant_type' => 'authorization_code', 'client_id' => config('keycloak.client_id'),
-            'client_secret' => config('keycloak.client_secret'), 'redirect_uri' => config('keycloak.redirect_uri'),
-            'code' => $request->string('code')->toString(), 'code_verifier' => $oauth['verifier'],
-        ]))->throw()->json();
-        $claims = Http::withToken($token['access_token'])->timeout(10)->get($base.'/userinfo')->throw()->json();
-        $sub = (string) ($claims['sub'] ?? '');
-        abort_unless($sub !== '', 422, 'Keycloak subject is missing.');
-        $user = User::updateOrCreate(['keycloak_sub' => $sub], [
-            'name' => $claims['name'] ?? $claims['preferred_username'] ?? $sub,
-            'email' => $claims['email'] ?? null, 'email_verified_at' => now(),
-        ]);
-        if (! $user->offices()->exists()) {
-            Auth::logout();
-            throw ValidationException::withMessages(['email' => 'Your account has no office assignment. Contact an administrator.']);
+        try {
+            $config = KeycloakConfig::fromConfig();
+        } catch (InvalidArgumentException) {
+            abort(503, 'Keycloak is not configured.');
         }
+
+        $oauth = $request->session()->pull('keycloak.oauth');
+        $callbackState = $request->query('state');
+        $code = $request->query('code');
+        if (! is_array($oauth)
+            || ! is_string($oauth['state'] ?? null)
+            || ! is_string($oauth['nonce'] ?? null)
+            || ! is_string($oauth['verifier'] ?? null)
+            || ! is_string($oauth['redirect_uri'] ?? null)
+            || ! is_string($callbackState)
+            || ! hash_equals($oauth['state'], $callbackState)
+            || ! hash_equals($oauth['redirect_uri'], $config->redirectUri)) {
+            throw ValidationException::withMessages(['oauth' => 'Invalid OAuth state. Please try signing in again.']);
+        }
+        if ($request->has('error')) {
+            throw ValidationException::withMessages(['oauth' => 'Keycloak denied the sign-in request.']);
+        }
+        if (! is_string($code) || $code === '') {
+            throw ValidationException::withMessages(['oauth' => 'Authorization code is missing.']);
+        }
+
+        $client = new KeycloakClient($config);
+
+        try {
+            $token = $client->exchangeCode(
+                $code,
+                $oauth['verifier'],
+            );
+            $idTokenClaims = $client->validateIdToken($token['id_token'], $oauth['nonce']);
+            $claims = $client->userInfo($token['access_token']);
+            if (($claims['sub'] ?? null) !== ($idTokenClaims['sub'] ?? null)) {
+                throw new RuntimeException('Keycloak subject mismatch.');
+            }
+        } catch (Throwable $exception) {
+            Log::warning('Keycloak OIDC sign-in failed.', [
+                'exception' => $exception::class,
+            ]);
+
+            throw ValidationException::withMessages(['oauth' => 'Sign-in failed. Please try again.']);
+        }
+        $user = $provisioner->provision($claims);
+
         Auth::login($user, remember: false);
+        $request->session()->regenerate();
 
         return redirect()->intended('/admin');
     }
 
-    public function logout(Request $request)
+    public function logout(Request $request): RedirectResponse
     {
         Auth::logout();
         $request->session()->invalidate();
         $request->session()->regenerateToken();
 
-        return redirect('/');
+        if (! config('keycloak.logout_redirect', true)) {
+            return redirect('/');
+        }
+
+        try {
+            $config = KeycloakConfig::fromConfig();
+        } catch (InvalidArgumentException) {
+            return redirect('/');
+        }
+
+        return redirect()->away($config->issuer.'/protocol/openid-connect/logout?'.http_build_query([
+            'client_id' => $config->clientId,
+            'post_logout_redirect_uri' => $config->postLogoutRedirectUri,
+        ], '', '&', PHP_QUERY_RFC3986));
     }
 }
