@@ -69,6 +69,7 @@ Use concise, descriptive English labels. Use plural nouns for list resources whe
 - Approver Mappings
 - Approver Delegations
 - Roles
+- Activity Log
 
 ## Architecture
 
