@@ -37,11 +37,19 @@ class ListPurchaseRequests extends ListRecords
                 ->icon('heroicon-o-pencil-square')
                 ->badge(fn (): int => $this->statusTabCount(PurchaseRequest::STATUS_DRAFT))
                 ->modifyQueryUsing(fn (Builder $query): Builder => $query->where('status', PurchaseRequest::STATUS_DRAFT)),
+            'submitted' => Tab::make('Diajukan')
+                ->icon('heroicon-o-paper-airplane')
+                ->badge(fn (): int => $this->statusTabCount(PurchaseRequest::STATUS_SUBMITTED))
+                ->badgeColor('info')
+                ->modifyQueryUsing(fn (Builder $query): Builder => $query->where('status', PurchaseRequest::STATUS_SUBMITTED)),
             'in_progress' => Tab::make('Diproses')
                 ->icon('heroicon-o-arrow-path')
                 ->badge(fn (): int => $this->statusTabCount('in_progress'))
                 ->badgeColor('info')
-                ->modifyQueryUsing(fn (Builder $query): Builder => $query->whereNotIn('status', self::settledStatuses())),
+                ->modifyQueryUsing(fn (Builder $query): Builder => $query->whereNotIn('status', [
+                    ...self::settledStatuses(),
+                    PurchaseRequest::STATUS_SUBMITTED,
+                ])),
             'returned' => Tab::make('Dikembalikan')
                 ->icon('heroicon-o-arrow-uturn-left')
                 ->badge(fn (): int => $this->statusTabCount(PurchaseRequest::STATUS_RETURNED))
@@ -141,7 +149,11 @@ class ListPurchaseRequests extends ListRecords
             $this->statusTabCounts = [
                 'all' => $countsByStatus->sum(),
                 PurchaseRequest::STATUS_DRAFT => $countsByStatus->get(PurchaseRequest::STATUS_DRAFT, 0),
-                'in_progress' => $countsByStatus->except(self::settledStatuses())->sum(),
+                PurchaseRequest::STATUS_SUBMITTED => $countsByStatus->get(PurchaseRequest::STATUS_SUBMITTED, 0),
+                'in_progress' => $countsByStatus->except([
+                    ...self::settledStatuses(),
+                    PurchaseRequest::STATUS_SUBMITTED,
+                ])->sum(),
                 PurchaseRequest::STATUS_RETURNED => $countsByStatus->get(PurchaseRequest::STATUS_RETURNED, 0),
                 PurchaseRequest::STATUS_REJECTED => $countsByStatus->get(PurchaseRequest::STATUS_REJECTED, 0),
                 'approved' => $countsByStatus->get(PurchaseRequest::STATUS_APPROVED, 0)

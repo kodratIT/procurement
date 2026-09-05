@@ -8,8 +8,11 @@ use App\Models\ProcurementCategory;
 use App\Models\ProcurementItem;
 use App\Models\ProcurementVariant;
 use App\Models\PurchaseRequest;
+use App\Models\User;
+use App\Models\UserAssignment;
 use App\Services\AccessContextService;
 use App\Services\AttachmentService;
+use App\Support\ProcurementPermissions;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\KeyValue;
@@ -30,7 +33,7 @@ final class PurchaseRequestForm
     {
         return $schema->components([
             Section::make('Konteks Organisasi & Kategori')
-                ->description('Pilih kategori dari database aktif — workflow approval & penomoran akan mengikuti kategori. Konteks kantor diambil dari sesi login.')
+                ->description('Pilih assignment target — kantor, cabang, dan departemen akan disimpan dari assignment yang dipilih.')
                 ->icon(Heroicon::OutlinedBuildingOffice2)
                 ->schema([
                     TextInput::make('requester_display')
@@ -40,6 +43,17 @@ final class PurchaseRequestForm
                         ->dehydrated(false)
                         ->placeholder('—')
                         ->prefixIcon(Heroicon::OutlinedUser),
+                    Select::make('assignment_id')
+                        ->label('Assignment Target')
+                        ->options(fn (): array => self::assignmentOptions())
+                        ->default(fn (): ?int => self::singleAssignmentId())
+                        ->required()
+                        ->searchable()
+                        ->preload()
+                        ->native(false)
+                        ->live()
+                        ->visibleOn('create')
+                        ->helperText('Pilih assignment yang memiliki izin membuat PR.'),
                     TextInput::make('office_display')
                         ->label('Kantor Aktif')
                         ->default(fn (): ?string => app(AccessContextService::class)->office()?->name)
@@ -301,6 +315,38 @@ final class PurchaseRequestForm
         $template = $category->number_template ? ' • Template: '.$category->number_template : '';
 
         return $workflow.$template.' • Tipe: '.$category->type->label();
+    }
+
+    /** @return array<int|string, string> */
+    private static function assignmentOptions(): array
+    {
+        $user = auth()->user();
+        if (! $user instanceof User) {
+            return [];
+        }
+
+        return UserAssignment::query()
+            ->where('user_id', $user->getKey())
+            ->currentlyActive()
+            ->with(['office', 'branch', 'department', 'assignedRole'])
+            ->get()
+            ->filter(fn (UserAssignment $assignment): bool => $assignment->allows(ProcurementPermissions::CREATE))
+            ->mapWithKeys(fn (UserAssignment $assignment): array => [
+                $assignment->getKey() => implode(' · ', array_filter([
+                    $assignment->office?->name,
+                    $assignment->branch?->name,
+                    $assignment->department?->name,
+                    $assignment->assignedRole?->name,
+                ])),
+            ])
+            ->all();
+    }
+
+    private static function singleAssignmentId(): ?int
+    {
+        $options = self::assignmentOptions();
+
+        return count($options) === 1 ? (int) array_key_first($options) : null;
     }
 
     private static function itemPlaceholder(Get $get): string

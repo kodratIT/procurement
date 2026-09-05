@@ -7,6 +7,7 @@ namespace App\Filament\Resources\WorkflowResource\Schemas;
 use App\Models\Workflow;
 use Filament\Infolists\Components\IconEntry;
 use Filament\Infolists\Components\TextEntry;
+use Filament\Infolists\Components\ViewEntry;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
@@ -36,6 +37,18 @@ final class WorkflowInfolist
                 ])
                 ->columns(2)
                 ->columnSpanFull(),
+
+            Section::make('Visual Workflow')
+                ->icon(Heroicon::OutlinedMap)
+                ->description('Alur persetujuan divisualisasikan seperti Packstub Flow: trigger → condition → action')
+                ->schema([
+                    ViewEntry::make('visual')
+                        ->hiddenLabel()
+                        ->view('filament.infolists.components.workflow-visual')
+                        ->columnSpanFull(),
+                ])
+                ->columnSpanFull()
+                ->collapsible(),
 
             Section::make('Status & Versi')
                 ->icon(Heroicon::OutlinedCheckCircle)

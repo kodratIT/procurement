@@ -13,7 +13,8 @@
         "laravel/framework": "^13.17",
         "laravel/tinker": "^3.0",
         "leek/filament-header-filters": "^2.0",
-        "mradder/filament-logger": "^1.6"
+        "mradder/filament-logger": "^1.6",
+        "packstub/filament-flow": "^1.1"
     },
     "require-dev": {
         "fakerphp/faker": "^1.23",

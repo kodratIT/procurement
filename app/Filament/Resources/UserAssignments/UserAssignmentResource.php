@@ -222,17 +222,23 @@ class UserAssignmentResource extends Resource
 
     public static function canAccess(): bool
     {
-        return app(FeatureModuleService::class)->allowsResource(self::class, fn (User $user): bool => app(AuthorizationService::class)->allows($user, 'ViewAny:UserAssignment'));
+        return app(FeatureModuleService::class)->allowsResource(self::class, fn (User $user): bool => app(AuthorizationService::class)->allowsAcrossAssignments($user, 'ViewAny:UserAssignment'));
     }
 
     public static function canViewAny(): bool
     {
-        return app(FeatureModuleService::class)->allowsResource(self::class, fn (User $user): bool => app(AuthorizationService::class)->allows($user, 'ViewAny:UserAssignment'));
+        return app(FeatureModuleService::class)->allowsResource(self::class, fn (User $user): bool => app(AuthorizationService::class)->allowsAcrossAssignments($user, 'ViewAny:UserAssignment'));
     }
 
     public static function getEloquentQuery(): Builder
     {
-        return app(MultiOfficeAuthorization::class)->scopeForCurrentContext(
+        $user = auth()->user();
+
+        if (! $user instanceof User) {
+            return parent::getEloquentQuery()->whereKey(0);
+        }
+
+        return app(MultiOfficeAuthorization::class)->scopeForUser(
             parent::getEloquentQuery()->with([
                 'user',
                 'office',
@@ -243,7 +249,7 @@ class UserAssignmentResource extends Resource
                 'scopes',
                 'permissionOverrides.permission',
             ]),
-            auth()->user(),
+            $user,
             'ViewAny:UserAssignment',
         );
     }

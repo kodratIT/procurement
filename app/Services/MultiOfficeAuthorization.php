@@ -14,6 +14,7 @@ use App\Support\ProcurementPermissions;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Collection;
 
 final class MultiOfficeAuthorization
 {
@@ -25,7 +26,7 @@ final class MultiOfficeAuthorization
         Model|array|null $subject = null,
         bool $acrossAssignments = false,
     ): bool {
-        $assignment = $this->assignmentForUser($user, $subject, $acrossAssignments);
+        $assignment = $this->assignmentForUser($user, $permission, $subject, $acrossAssignments);
 
         if ($assignment === null) {
             return false;
@@ -42,12 +43,20 @@ final class MultiOfficeAuthorization
 
     public function canView(User $user, Model|array|null $subject = null): bool
     {
-        return $this->allows($user, ProcurementPermissions::VIEW, $subject);
+        // Views aggregate across active assignments: without a subject any
+        // assignment granting VIEW is enough; with a record the assignment
+        // must also match its office/branch/department/category scope.
+        return $this->allows($user, ProcurementPermissions::VIEW, $subject, acrossAssignments: true);
     }
 
     public function canCreate(User $user, Model|array|null $subject = null): bool
     {
         return $this->allows($user, ProcurementPermissions::CREATE, $subject, acrossAssignments: true);
+    }
+
+    public function allowsAcrossAssignments(User $user, string $permission): bool
+    {
+        return $this->assignmentsAllowing($user, $permission)->isNotEmpty();
     }
 
     public function canUpdate(User $user, Model|array|null $subject = null, bool $confirmed = false): bool
@@ -79,13 +88,11 @@ final class MultiOfficeAuthorization
         string $permission,
         bool $confirmed = false,
     ): bool {
-        if (! $this->allows($user, $permission, $subject)) {
-            return false;
-        }
-
-        return ! $this->requiresConfirmation($user, $subject)
-            || $confirmed
-            || ($user->is(auth()->user()) && $this->context->mutationIsConfirmed());
+        // Mutations target an explicit record: any active assignment that
+        // grants the permission and matches the record subject authorizes it.
+        // The legacy session-confirmation flow no longer gates this because
+        // the office switcher and its confirmation session were removed.
+        return $this->allows($user, $permission, $subject, acrossAssignments: $subject !== null);
     }
 
     public function authorizeCreate(User $user, Model|array|null $subject, string $permission): void
@@ -109,14 +116,8 @@ final class MultiOfficeAuthorization
         string $permission,
         bool $confirmed = false,
     ): void {
-        if (! $this->allows($user, $permission, $subject)) {
+        if (! $this->canMutate($user, $subject, $permission, $confirmed)) {
             throw new AuthorizationException('The active assignment does not authorize this mutation.');
-        }
-
-        if ($this->requiresConfirmation($user, $subject)
-            && ! $confirmed
-            && ! ($user->is(auth()->user()) && $this->context->mutationIsConfirmed())) {
-            throw new AuthorizationException('Confirm this mutation in the non-default office context before continuing.');
         }
     }
 
@@ -127,7 +128,7 @@ final class MultiOfficeAuthorization
         string $permission = ProcurementPermissions::VIEW,
     ): Builder {
         $user ??= auth()->user();
-        $assignment = $user instanceof User ? $this->assignmentForUser($user) : null;
+        $assignment = $user instanceof User ? $this->assignmentForUser($user, $permission) : null;
 
         if ($assignment === null || ! $assignment->allows($permission)) {
             return $query->whereKey(0);
@@ -136,18 +137,30 @@ final class MultiOfficeAuthorization
         return $this->applyAssignmentScope($query, $assignment);
     }
 
+    /** @return Collection<int, UserAssignment> */
+    public function assignmentsAllowing(User $user, string $permission): Collection
+    {
+        return $this->context->allowedAssignments($user)
+            ->filter(fn (UserAssignment $assignment): bool => $assignment->allows($permission))
+            ->values();
+    }
+
     /** @return Builder<Model> */
     public function scopeForUser(
         Builder $query,
         User $user,
         string $permission = ProcurementPermissions::VIEW,
     ): Builder {
-        $assignments = $this->context->allowedAssignments($user)
-            ->filter(fn (UserAssignment $assignment): bool => $assignment->allows($permission));
+        $assignments = $this->assignmentsAllowing($user, $permission);
 
         if ($assignments->isEmpty()) {
             return $query->whereKey(0);
         }
+
+        // Drop the single-context global scopes so the union below is the
+        // only read filter; leaving them attached would AND the active
+        // session context back into every OR group.
+        $query->withoutGlobalScopes(['office', 'access_context']);
 
         $model = $query->getModel();
         if (! $this->hasColumn($model, 'office_id')) {
@@ -156,9 +169,7 @@ final class MultiOfficeAuthorization
 
         return $query->where(function (Builder $query) use ($assignments): void {
             foreach ($assignments as $assignment) {
-                $query->orWhere(function (Builder $query) use ($assignment): void {
-                    $this->applyAssignmentScope($query, $assignment, nested: true);
-                });
+                $query->orWhere(fn (Builder $group): Builder => $this->applyAssignmentScope($group, $assignment));
             }
         });
     }
@@ -184,26 +195,31 @@ final class MultiOfficeAuthorization
             $query->where($prefix.$column, $assignment->{$column});
         }
 
+        $categoryIds = $this->scopedCategoryIds($assignment);
+        if ($categoryIds !== [] && $this->hasColumn($model, 'category_id')) {
+            $query->whereIn($prefix.'category_id', $categoryIds);
+        }
+
         return $query;
     }
 
     private function assignmentForUser(
         User $user,
+        string $permission,
         Model|array|null $subject = null,
         bool $acrossAssignments = false,
     ): ?UserAssignment {
         $active = $user->is(auth()->user()) ? $this->context->assignment() : $this->context->defaultContext($user);
 
-        if ($active !== null && $this->matchesSubject($active, $subject)) {
+        if ($active !== null && $active->allows($permission) && $this->matchesSubject($active, $subject)) {
             return $active;
         }
 
-        // Some creates target an office the user is actively assigned to but
-        // that is not the active context (master data for a second office).
-        // Allow those when explicitly requested; update/delete stay scoped to
-        // the active context.
+        // Creates and targeted mutations may land on a record owned by any
+        // active assignment: pick one that grants the permission and matches
+        // the record's office/branch/department/category scope.
         if ($acrossAssignments && $subject !== null) {
-            return $this->context->allowedAssignments($user)
+            return $this->assignmentsAllowing($user, $permission)
                 ->first(fn (UserAssignment $assignment): bool => $this->matchesSubject($assignment, $subject));
         }
 
@@ -234,7 +250,24 @@ final class MultiOfficeAuthorization
             }
         }
 
-        return ! $this->hasRestrictedScope($assignment, 'office', $officeId);
+        $categoryIds = $this->scopedCategoryIds($assignment);
+        $categoryId = $this->subjectValue($subject, 'category_id');
+
+        return $categoryIds === []
+            || $categoryId === null
+            || in_array((int) $categoryId, $categoryIds, true);
+    }
+
+    /** @return list<int> */
+    private function scopedCategoryIds(UserAssignment $assignment): array
+    {
+        return $assignment->scopes
+            ->where('scope_type', 'category')
+            ->pluck('scope_id')
+            ->map(fn (mixed $id): int => (int) $id)
+            ->filter()
+            ->values()
+            ->all();
     }
 
     private function hasRestrictedScope(UserAssignment $assignment, string $type, mixed $value): bool

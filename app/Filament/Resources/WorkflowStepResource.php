@@ -57,12 +57,12 @@ class WorkflowStepResource extends Resource
 
     public static function canAccess(): bool
     {
-        return app(FeatureModuleService::class)->allowsResource(self::class, fn (User $user): bool => app(AuthorizationService::class)->allows($user, 'ViewAny:WorkflowStep'));
+        return app(FeatureModuleService::class)->allowsResource(self::class, fn (User $user): bool => app(AuthorizationService::class)->allowsAcrossAssignments($user, 'ViewAny:WorkflowStep'));
     }
 
     public static function canViewAny(): bool
     {
-        return app(FeatureModuleService::class)->allowsResource(self::class, fn (User $user): bool => app(AuthorizationService::class)->allows($user, 'ViewAny:WorkflowStep'));
+        return app(FeatureModuleService::class)->allowsResource(self::class, fn (User $user): bool => app(AuthorizationService::class)->allowsAcrossAssignments($user, 'ViewAny:WorkflowStep'));
     }
 
     public static function getPages(): array

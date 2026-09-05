@@ -22,7 +22,14 @@ class EnsureFeatureModuleEnabled
         $controller = $request->route()?->getControllerClass();
 
         if ($user instanceof User && is_string($controller) && is_a($controller, ResourcePage::class, true)) {
-            app(FeatureModuleService::class)->assertResource($controller::getResource(), $user);
+            $resource = $controller::getResource();
+
+            // Hybrid: Packstub Flow internal resources (e.g., SecretResource) are not managed — skip
+            if (str_starts_with((string) $resource, 'Packstub\\Flow\\')) {
+                return $next($request);
+            }
+
+            app(FeatureModuleService::class)->assertResource($resource, $user);
         }
 
         return $next($request);

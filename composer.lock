@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "436c53d1905a5bcc892f49ef17069848",
+    "content-hash": "e6457379d90cbbe516eefb198364a698",
     "packages": [
         {
             "name": "anourvalar/eloquent-serialize",
@@ -4383,6 +4383,100 @@
                 }
             ],
             "time": "2025-09-03T16:03:54+00:00"
+        },
+        {
+            "name": "packstub/filament-flow",
+            "version": "v1.1.0",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/packstub/filament-flow.git",
+                "reference": "6af3106c28afc361a68946477bf5cdfb16c65988"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/packstub/filament-flow/zipball/6af3106c28afc361a68946477bf5cdfb16c65988",
+                "reference": "6af3106c28afc361a68946477bf5cdfb16c65988",
+                "shasum": ""
+            },
+            "require": {
+                "dragonmantank/cron-expression": "^3.3",
+                "filament/filament": "^4.0 || ^5.0",
+                "illuminate/contracts": "^12.0 || ^13.0",
+                "php": "^8.3",
+                "spatie/laravel-package-tools": "^1.92"
+            },
+            "require-dev": {
+                "laravel/pint": "^1.27",
+                "orchestra/testbench": "^10.0 || ^11.0",
+                "pestphp/pest": "^4.0 || ^5.0",
+                "pestphp/pest-plugin-laravel": "^4.0 || ^5.0",
+                "pestphp/pest-plugin-livewire": "^4.0 || ^5.0",
+                "spatie/laravel-model-states": "^2.11",
+                "spatie/laravel-model-status": "^1.20",
+                "spatie/laravel-tags": "^4.12"
+            },
+            "type": "library",
+            "extra": {
+                "laravel": {
+                    "aliases": {
+                        "Flow": "Packstub\\Flow\\Facades\\Flow"
+                    },
+                    "providers": [
+                        "Packstub\\Flow\\FlowServiceProvider"
+                    ]
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Packstub\\Flow\\": "src/"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "Ion Caliman",
+                    "email": "icaliman92@gmail.com",
+                    "role": "Developer"
+                },
+                {
+                    "name": "Packstub",
+                    "email": "support@packstub.dev",
+                    "homepage": "https://packstub.dev"
+                }
+            ],
+            "description": "Visual workflow automations for Filament panels: triggers, conditions and actions drawn on a canvas, run by your queue.",
+            "homepage": "https://github.com/packstub/filament-flow",
+            "keywords": [
+                "automation",
+                "automations",
+                "filament",
+                "filament-automations",
+                "filament-flow",
+                "filament-plugin",
+                "filament-v5",
+                "flowchart",
+                "laravel",
+                "no-code",
+                "packstub",
+                "triggers",
+                "workflow",
+                "workflows"
+            ],
+            "support": {
+                "docs": "https://packstub.dev/docs/filament-flow",
+                "issues": "https://github.com/packstub/filament-flow/issues",
+                "source": "https://github.com/packstub/filament-flow"
+            },
+            "funding": [
+                {
+                    "url": "https://github.com/icaliman",
+                    "type": "github"
+                }
+            ],
+            "time": "2026-09-03T08:38:11+00:00"
         },
         {
             "name": "paragonie/constant_time_encoding",

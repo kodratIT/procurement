@@ -81,7 +81,7 @@ final class PurchaseOrderResource extends Resource
             return parent::getEloquentQuery()->whereKey(0);
         }
 
-        return app(MultiOfficeAuthorization::class)->scopeForCurrentContext(
+        return app(MultiOfficeAuthorization::class)->scopeForUser(
             parent::getEloquentQuery()
                 ->with(['purchaseRequest', 'vendor', 'quotation', 'items', 'attachments', 'goodsReceipts.items', 'goodsReceipts.receiver']),
             $user,
@@ -91,11 +91,11 @@ final class PurchaseOrderResource extends Resource
 
     public static function canAccess(): bool
     {
-        return app(FeatureModuleService::class)->allowsResource(self::class, fn (User $user): bool => app(AuthorizationService::class)->allows($user, 'ViewAny:PurchaseOrder'));
+        return app(FeatureModuleService::class)->allowsResource(self::class, fn (User $user): bool => app(AuthorizationService::class)->allowsAcrossAssignments($user, 'ViewAny:PurchaseOrder'));
     }
 
     public static function canViewAny(): bool
     {
-        return app(FeatureModuleService::class)->allowsResource(self::class, fn (User $user): bool => app(AuthorizationService::class)->allows($user, 'ViewAny:PurchaseOrder'));
+        return app(FeatureModuleService::class)->allowsResource(self::class, fn (User $user): bool => app(AuthorizationService::class)->allowsAcrossAssignments($user, 'ViewAny:PurchaseOrder'));
     }
 }

@@ -89,6 +89,39 @@ class PurchaseRequestDraftTest extends TestCase
         $this->assertSame('private', $request->attachments->first()->disk);
     }
 
+    public function test_user_can_create_a_draft_in_another_assignment_without_switching_context(): void
+    {
+        $this->seed(ProcurementRolesSeeder::class);
+        $user = User::factory()->create();
+        $officeA = Office::factory()->create();
+        $officeB = Office::factory()->create();
+        $role = Role::query()->where('name', 'Operasional')->firstOrFail();
+        $assignmentA = UserAssignment::factory()->create([
+            'user_id' => $user->id,
+            'office_id' => $officeA->id,
+            'role_id' => $role->id,
+            'is_primary' => true,
+        ]);
+        $assignmentB = UserAssignment::factory()->create([
+            'user_id' => $user->id,
+            'office_id' => $officeB->id,
+            'role_id' => $role->id,
+        ]);
+        $category = ProcurementCategory::factory()->create();
+
+        $this->actingAs($user);
+        app(AccessContextService::class)->setContext($assignmentA);
+        $request = app(ProcurementRequestDraftSaver::class)->save([
+            'assignment_id' => $assignmentB->id,
+            'category_id' => $category->id,
+            'reason' => 'Second office supplies',
+            'items' => [['item_name' => 'Printer paper', 'quantity' => 1, 'unit_price' => 100]],
+        ], user: $user);
+
+        $this->assertSame($officeB->id, $request->office_id);
+        $this->assertSame($assignmentA->id, app(AccessContextService::class)->assignment()?->id);
+    }
+
     public function test_authorized_user_can_reopen_and_edit_structured_and_dynamic_draft_values(): void
     {
         $category = ProcurementCategory::factory()->create();

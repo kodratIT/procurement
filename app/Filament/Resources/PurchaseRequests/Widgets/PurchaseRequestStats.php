@@ -28,7 +28,8 @@ final class PurchaseRequestStats extends StatsOverviewWidget
 
         $query->where('requester_id', $user->getKey());
 
-        return app(MultiOfficeAuthorization::class)->scopeForCurrentContext($query, $user, 'ViewAny:PurchaseRequest');
+        // Statistik mengikuti hasil agregat lintas assignment milik requester yang sama.
+        return app(MultiOfficeAuthorization::class)->scopeForUser($query, $user, 'ViewAny:PurchaseRequest');
     }
 
     protected function getStats(): array

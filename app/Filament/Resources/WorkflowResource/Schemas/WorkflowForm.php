@@ -8,6 +8,7 @@ use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\View;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 
@@ -54,6 +55,18 @@ class WorkflowForm
                         ->helperText('Non-aktifkan tanpa menghapus. Workflow non-aktif tidak dipakai resolver.'),
                 ])
                 ->columnSpanFull(),
+
+            Section::make('Visual Workflow')
+                ->description('Pratinjau alur saat ini (read-only). Edit tahap di tab Versions / Workflow Stages.')
+                ->icon(Heroicon::OutlinedMap)
+                ->schema([
+                    View::make('filament.infolists.components.workflow-visual')
+                        ->visible(fn (?object $record): bool => $record !== null && $record->exists)
+                        ->columnSpanFull(),
+                ])
+                ->columnSpanFull()
+                ->collapsible()
+                ->visible(fn (?object $record): bool => $record !== null && $record->exists),
         ]);
     }
 }

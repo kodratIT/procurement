@@ -47,10 +47,10 @@ final class FeatureModuleServiceTest extends TestCase
 
         $registry->validate();
 
-        $this->assertCount(6, $registry->sections());
-        $this->assertCount(29, $registry->features());
-        $this->assertCount(35, $registry->stateKeys());
-        $this->assertCount(35, FeatureFlag::query()->get());
+        $this->assertCount(7, $registry->sections());
+        $this->assertCount(30, $registry->features());
+        $this->assertCount(37, $registry->stateKeys());
+        $this->assertCount(37, FeatureFlag::query()->get());
         $this->assertNull($registry->featureForModel(PurchaseRequest::class));
         $this->assertSame(
             FeatureRegistry::FEATURE_REQUESTS,

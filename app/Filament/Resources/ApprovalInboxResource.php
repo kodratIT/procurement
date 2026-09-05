@@ -174,8 +174,8 @@ final class ApprovalInboxResource extends Resource
 
     private static function canViewAnyFor(User $user): bool
     {
-        return (app(AuthorizationService::class)->allows($user, 'ViewAny:ApprovalInstanceStep')
-                || app(AuthorizationService::class)->allows($user, 'ViewAny:PurchaseRequest'))
+        return (app(AuthorizationService::class)->allowsAcrossAssignments($user, 'ViewAny:ApprovalInstanceStep')
+                || app(AuthorizationService::class)->allowsAcrossAssignments($user, 'ViewAny:PurchaseRequest'))
             && (app(FeatureModuleService::class)->featureIsAvailable(FeatureRegistry::FEATURE_APPROVAL_INBOX, $user)
                 || app(FeatureModuleService::class)->featureIsAvailable(FeatureRegistry::FEATURE_PROCUREMENT_REVIEWS, $user));
     }

@@ -12,6 +12,7 @@ use App\Models\PurchaseRequest;
 use App\Models\PurchaseRequestFieldValue;
 use App\Models\UmrahBatch;
 use App\Models\User;
+use App\Models\UserAssignment;
 use App\Support\DomainTransaction;
 use App\Support\ProcurementPermissions;
 use Illuminate\Auth\Access\AuthorizationException;
@@ -45,9 +46,16 @@ final class ProcurementRequestDraftSaver
 
         $this->featureModules->assertEnabled(FeatureRegistry::FEATURE_REQUESTS, $user);
 
-        $assignment = $this->context->assignment();
+        $assignment = $request === null
+            ? $this->createAssignment($data, $user)
+            : $this->context->allowedAssignments($user)->first(
+                fn (UserAssignment $candidate): bool => $candidate->allows(ProcurementPermissions::UPDATE)
+                    && (int) $candidate->office_id === (int) $request->office_id
+                    && ($candidate->branch_id === null || (int) $candidate->branch_id === (int) $request->branch_id)
+                    && ($candidate->department_id === null || (int) $candidate->department_id === (int) $request->department_id),
+            );
         if ($assignment === null) {
-            throw new AuthorizationException('An active office context is required.');
+            throw new AuthorizationException('No active assignment authorizes this purchase request.');
         }
 
         $request === null
@@ -128,6 +136,22 @@ final class ProcurementRequestDraftSaver
                 'permission' => $request === null ? ProcurementPermissions::CREATE : ProcurementPermissions::UPDATE,
             ],
         );
+    }
+
+    private function createAssignment(array $data, User $user): UserAssignment
+    {
+        $assignments = $this->context->allowedAssignments($user)
+            ->filter(fn (UserAssignment $assignment): bool => $assignment->allows(ProcurementPermissions::CREATE));
+        $assignmentId = $this->nullableInteger($data['assignment_id'] ?? null);
+        $assignment = $assignmentId === null
+            ? $this->context->assignment()
+            : $assignments->firstWhere('id', $assignmentId);
+
+        if (! $assignment instanceof UserAssignment || ! $assignment->allows(ProcurementPermissions::CREATE)) {
+            throw new AuthorizationException('The selected assignment cannot create purchase requests.');
+        }
+
+        return $assignment;
     }
 
     /**

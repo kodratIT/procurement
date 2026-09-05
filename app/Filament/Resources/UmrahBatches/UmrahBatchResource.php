@@ -50,12 +50,12 @@ class UmrahBatchResource extends Resource
 
     public static function canAccess(): bool
     {
-        return app(FeatureModuleService::class)->allowsResource(self::class, fn (User $user): bool => app(AuthorizationService::class)->allows($user, 'ViewAny:UmrahBatch'));
+        return app(FeatureModuleService::class)->allowsResource(self::class, fn (User $user): bool => app(AuthorizationService::class)->allowsAcrossAssignments($user, 'ViewAny:UmrahBatch'));
     }
 
     public static function canViewAny(): bool
     {
-        return app(FeatureModuleService::class)->allowsResource(self::class, fn (User $user): bool => app(AuthorizationService::class)->allows($user, 'ViewAny:UmrahBatch'));
+        return app(FeatureModuleService::class)->allowsResource(self::class, fn (User $user): bool => app(AuthorizationService::class)->allowsAcrossAssignments($user, 'ViewAny:UmrahBatch'));
     }
 
     public static function getEloquentQuery(): Builder

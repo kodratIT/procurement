@@ -42,12 +42,12 @@ class BudgetResource extends Resource
 
     public static function canAccess(): bool
     {
-        return app(FeatureModuleService::class)->allowsResource(self::class, fn (User $user): bool => app(AuthorizationService::class)->allows($user, 'ViewAny:Budget'));
+        return app(FeatureModuleService::class)->allowsResource(self::class, fn (User $user): bool => app(AuthorizationService::class)->allowsAcrossAssignments($user, 'ViewAny:Budget'));
     }
 
     public static function canViewAny(): bool
     {
-        return app(FeatureModuleService::class)->allowsResource(self::class, fn (User $user): bool => app(AuthorizationService::class)->allows($user, 'ViewAny:Budget'));
+        return app(FeatureModuleService::class)->allowsResource(self::class, fn (User $user): bool => app(AuthorizationService::class)->allowsAcrossAssignments($user, 'ViewAny:Budget'));
     }
 
     public static function getEloquentQuery(): Builder
@@ -56,7 +56,7 @@ class BudgetResource extends Resource
         $user = Auth::user();
 
         return $user instanceof User
-            ? app(MultiOfficeAuthorization::class)->scopeForCurrentContext($query, $user, 'ViewAny:Budget')
+            ? app(MultiOfficeAuthorization::class)->scopeForUser($query, $user, 'ViewAny:Budget')
             : $query->whereKey(0);
     }
 

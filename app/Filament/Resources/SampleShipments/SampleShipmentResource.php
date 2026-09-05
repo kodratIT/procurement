@@ -13,7 +13,6 @@ use App\Filament\Resources\SampleShipments\Schemas\SampleShipmentInfolist;
 use App\Filament\Resources\SampleShipments\Tables\SampleShipmentsTable;
 use App\Models\SampleShipment;
 use App\Models\User;
-use App\Services\AccessContextService;
 use App\Services\AuthorizationService;
 use App\Services\FeatureModuleService;
 use App\Services\MultiOfficeAuthorization;
@@ -64,42 +63,46 @@ final class SampleShipmentResource extends Resource
             return parent::getEloquentQuery()->whereKey(0);
         }
 
-        $query = app(MultiOfficeAuthorization::class)->scopeForCurrentContext(
-            parent::getEloquentQuery()->with([
-                'purchaseOrder',
-                'senderOffice',
-                'receiverOffice',
-                'sender',
-                'receiver',
-                'costCenter',
-                'items.procurementItem',
-                'items.procurementVariant',
-                'receipt.attachments',
-                'attachments',
-            ]),
-            $user,
-            'ViewAny:SampleShipment',
-        );
-        $receiverOfficeIds = app(AccessContextService::class)->allowedAssignments($user)
-            ->filter(fn ($assignment): bool => $assignment->allows('ViewAny:SampleShipment'))
-            ->pluck('office_id')
-            ->unique()
-            ->values()
-            ->all();
+        $authorization = app(MultiOfficeAuthorization::class);
+        $assignments = $authorization->assignmentsAllowing($user, 'ViewAny:SampleShipment');
 
-        return $receiverOfficeIds === []
-            ? $query
-            : $query->orWhereIn('sample_shipments.receiver_office_id', $receiverOfficeIds);
+        if ($assignments->isEmpty()) {
+            return parent::getEloquentQuery()->whereKey(0);
+        }
+
+        // Receiver-office visibility dikelompokkan bersama scope assignment
+        // dalam satu grup OR; tanpa grouping, orWhereIn lepas dari scope
+        // kantor dan membocorkan shipment di luar assignment pengguna.
+        $receiverOfficeIds = $assignments->pluck('office_id')->unique()->values();
+
+        return parent::getEloquentQuery()->with([
+            'purchaseOrder',
+            'senderOffice',
+            'receiverOffice',
+            'sender',
+            'receiver',
+            'costCenter',
+            'items.procurementItem',
+            'items.procurementVariant',
+            'receipt.attachments',
+            'attachments',
+        ])->where(function (Builder $query) use ($authorization, $assignments, $receiverOfficeIds): void {
+            foreach ($assignments as $assignment) {
+                $query->orWhere(fn (Builder $group): Builder => $authorization->applyAssignmentScope($group, $assignment));
+            }
+
+            $query->orWhereIn('sample_shipments.receiver_office_id', $receiverOfficeIds->all());
+        });
     }
 
     public static function canAccess(): bool
     {
-        return app(FeatureModuleService::class)->allowsResource(self::class, fn (User $user): bool => app(AuthorizationService::class)->allows($user, 'ViewAny:SampleShipment'));
+        return app(FeatureModuleService::class)->allowsResource(self::class, fn (User $user): bool => app(AuthorizationService::class)->allowsAcrossAssignments($user, 'ViewAny:SampleShipment'));
     }
 
     public static function canViewAny(): bool
     {
-        return app(FeatureModuleService::class)->allowsResource(self::class, fn (User $user): bool => app(AuthorizationService::class)->allows($user, 'ViewAny:SampleShipment'));
+        return app(FeatureModuleService::class)->allowsResource(self::class, fn (User $user): bool => app(AuthorizationService::class)->allowsAcrossAssignments($user, 'ViewAny:SampleShipment'));
     }
 
     /** @return array<string, class-string> */

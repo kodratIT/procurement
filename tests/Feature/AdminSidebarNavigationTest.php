@@ -7,6 +7,7 @@ namespace Tests\Feature;
 use App\Filament\Resources\ApprovalInboxResource;
 use App\Filament\Resources\ApproverDelegations\ApproverDelegationResource;
 use App\Filament\Resources\ApproverMappings\ApproverMappingResource;
+use App\Filament\Resources\AutomationWorkflowResource;
 use App\Filament\Resources\Branches\BranchResource;
 use App\Filament\Resources\Budgets\BudgetResource;
 use App\Filament\Resources\CostCenters\CostCenterResource;
@@ -49,6 +50,7 @@ final class AdminSidebarNavigationTest extends TestCase
             'Umrah Operations',
             'Organization & Finance',
             'Approval',
+            'Automation',
             'Settings',
         ], $panel->getNavigationGroups());
 
@@ -68,6 +70,7 @@ final class AdminSidebarNavigationTest extends TestCase
             WorkflowResource::class => ['Approval', 'Workflows', 10],
             WorkflowStepResource::class => ['Approval', 'Workflow Stages', 30],
             WorkflowVersionResource::class => ['Approval', 'Workflow Versions', 20],
+            AutomationWorkflowResource::class => ['Automation', 'Automations', null],
             PilgrimResource::class => ['Umrah Operations', 'Pilgrims', 10],
             UmrahBatchResource::class => ['Umrah Operations', 'Umrah Batches', 20],
             SampleShipmentResource::class => ['Umrah Operations', 'Sample Shipments', 40],

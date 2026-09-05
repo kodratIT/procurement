@@ -7,6 +7,7 @@ namespace App\Services;
 use App\Filament\Resources\ApprovalInboxResource;
 use App\Filament\Resources\ApproverDelegations\ApproverDelegationResource;
 use App\Filament\Resources\ApproverMappings\ApproverMappingResource;
+use App\Filament\Resources\AutomationWorkflowResource;
 use App\Filament\Resources\Branches\BranchResource;
 use App\Filament\Resources\Budgets\BudgetResource;
 use App\Filament\Resources\CostCenters\CostCenterResource;
@@ -83,6 +84,8 @@ final class FeatureRegistry
 
     public const SECTION_ORGANIZATION_FINANCE = 'section.organization-finance';
 
+    public const SECTION_AUTOMATION = 'section.automation';
+
     public const SECTION_SETTINGS = 'section.settings';
 
     public const FEATURE_REQUESTS = 'procurement.requests';
@@ -138,6 +141,8 @@ final class FeatureRegistry
     public const FEATURE_APPROVER_MAPPINGS = 'settings.approver-mappings';
 
     public const FEATURE_APPROVER_DELEGATIONS = 'settings.approver-delegations';
+
+    public const FEATURE_AUTOMATIONS = 'automation.workflows';
 
     public const FEATURE_ROLES = 'settings.roles';
 
@@ -212,6 +217,13 @@ final class FeatureRegistry
                 self::FEATURE_BUDGETS,
             ],
         ],
+        self::SECTION_AUTOMATION => [
+            'key' => self::SECTION_AUTOMATION,
+            'scope' => 'section',
+            'label' => 'Automation',
+            'sort' => 55,
+            'feature_keys' => [self::FEATURE_AUTOMATIONS],
+        ],
         self::SECTION_SETTINGS => [
             'key' => self::SECTION_SETTINGS,
             'scope' => 'section',
@@ -253,6 +265,7 @@ final class FeatureRegistry
         self::FEATURE_DEPARTMENTS => ['key' => self::FEATURE_DEPARTMENTS, 'scope' => 'feature', 'label' => 'Departments', 'section_key' => self::SECTION_ORGANIZATION_FINANCE, 'sort' => 30, 'resource' => DepartmentResource::class, 'model' => Department::class],
         self::FEATURE_COST_CENTERS => ['key' => self::FEATURE_COST_CENTERS, 'scope' => 'feature', 'label' => 'Cost Centers', 'section_key' => self::SECTION_ORGANIZATION_FINANCE, 'sort' => 40, 'resource' => CostCenterResource::class, 'model' => CostCenter::class],
         self::FEATURE_BUDGETS => ['key' => self::FEATURE_BUDGETS, 'scope' => 'feature', 'label' => 'Budgets', 'section_key' => self::SECTION_ORGANIZATION_FINANCE, 'sort' => 50, 'resource' => BudgetResource::class, 'model' => Budget::class],
+        self::FEATURE_AUTOMATIONS => ['key' => self::FEATURE_AUTOMATIONS, 'scope' => 'feature', 'label' => 'Automations', 'section_key' => self::SECTION_AUTOMATION, 'sort' => 10, 'resource' => AutomationWorkflowResource::class, 'model' => \Packstub\Flow\Models\Workflow::class],
         self::FEATURE_APPROVER_MAPPINGS => ['key' => self::FEATURE_APPROVER_MAPPINGS, 'scope' => 'feature', 'label' => 'Approver Mappings', 'section_key' => self::SECTION_SETTINGS, 'sort' => 10, 'resource' => ApproverMappingResource::class, 'model' => ApproverMapping::class],
         self::FEATURE_APPROVER_DELEGATIONS => ['key' => self::FEATURE_APPROVER_DELEGATIONS, 'scope' => 'feature', 'label' => 'Approver Delegations', 'section_key' => self::SECTION_SETTINGS, 'sort' => 20, 'resource' => ApproverDelegationResource::class, 'model' => ApproverDelegation::class],
         self::FEATURE_ROLES => ['key' => self::FEATURE_ROLES, 'scope' => 'feature', 'label' => 'Roles', 'section_key' => self::SECTION_SETTINGS, 'sort' => 30, 'resource' => RoleResource::class, 'model' => Role::class],

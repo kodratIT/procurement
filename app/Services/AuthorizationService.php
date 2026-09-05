@@ -22,6 +22,17 @@ class AuthorizationService
         ], static fn (mixed $value): bool => $value !== null));
     }
 
+    public function allowsAcrossAssignments(User $user, string $permission): bool
+    {
+        return $this->authorization->allowsAcrossAssignments($user, $permission);
+    }
+
+    /** @param Builder<object> $query */
+    public function scopeAcrossAssignments(Builder $query, User $user, string $permission): Builder
+    {
+        return $this->authorization->scopeForUser($query, $user, $permission);
+    }
+
     public function canAccessAssignment(User $user, UserAssignment $assignment): bool
     {
         return $this->authorization->canView($user, $assignment);
@@ -48,7 +59,9 @@ class AuthorizationService
 
     public function canManageRecord(User $user, string $permission, object $record): bool
     {
+        // Targeted authorization: any active assignment that grants the
+        // permission and matches the record's office/branch/department scope.
         return $record instanceof Model
-            && $this->authorization->allows($user, $permission, $record);
+            && $this->authorization->allows($user, $permission, $record, acrossAssignments: true);
     }
 }

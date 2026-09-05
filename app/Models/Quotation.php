@@ -14,11 +14,12 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
+use Packstub\Flow\Concerns\HasWorkflows;
 
 class Quotation extends Model
 {
     /** @use HasFactory<QuotationFactory> */
-    use HasFactory;
+    use HasFactory, HasWorkflows;
 
     public const STATUS_DRAFT = 'draft';
 

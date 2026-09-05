@@ -3,10 +3,17 @@
 namespace App\Providers\Filament;
 
 use App\Filament\Pages\Auth\Login;
+use App\Filament\Resources\AutomationWorkflowResource;
+use App\Flow\Nodes\Actions\NotifyNextApproverAction;
+use App\Flow\Nodes\Actions\UpdatePurchaseRequestStatusAction;
 use App\Http\Middleware\EnsureActiveOffice;
 use App\Http\Middleware\EnsureFeatureModuleEnabled;
 use App\Http\Middleware\RequireApplicationAssignment;
-use App\Services\AccessContextService;
+use App\Models\ApprovalInstance;
+use App\Models\PurchaseRequest;
+use App\Models\PurchaseRequestItem;
+use App\Models\Quotation;
+use App\Models\Vendor;
 use BezhanSalleh\FilamentShield\FilamentShieldPlugin;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
@@ -15,17 +22,17 @@ use Filament\Http\Middleware\DispatchServingFilamentEvent;
 use Filament\Pages\Dashboard;
 use Filament\Panel;
 use Filament\PanelProvider;
+use Filament\Support\Assets\Js;
 use Filament\Support\Colors\Color;
-use Filament\View\PanelsRenderHook;
 use Filament\Widgets\AccountWidget;
 use Filament\Widgets\FilamentInfoWidget;
-use Illuminate\Contracts\View\View;
 use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
 use Illuminate\Cookie\Middleware\EncryptCookies;
 use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
 use Illuminate\Routing\Middleware\SubstituteBindings;
 use Illuminate\Session\Middleware\StartSession;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
+use Packstub\Flow\FlowPlugin;
 
 class AdminPanelProvider extends PanelProvider
 {
@@ -36,6 +43,9 @@ class AdminPanelProvider extends PanelProvider
             ->path('admin')
             ->login(Login::class)
             ->viteTheme('resources/css/filament/admin/theme.css')
+            ->assets([
+                Js::make('workflow-visual', resource_path('js/workflow-visual.js')),
+            ])
             ->colors([
                 'primary' => Color::Amber,
             ])
@@ -46,14 +56,9 @@ class AdminPanelProvider extends PanelProvider
                 'Umrah Operations',
                 'Organization & Finance',
                 'Approval',
+                'Automation',
                 'Settings',
             ])
-            ->renderHook(
-                PanelsRenderHook::TOPBAR_START,
-                fn (): View => view('filament.office-context', [
-                    'context' => app(AccessContextService::class),
-                ]),
-            )
             ->discoverResources(in: app_path('Filament/Resources'), for: 'App\Filament\Resources')
             ->discoverPages(in: app_path('Filament/Pages'), for: 'App\Filament\Pages')
             ->pages([
@@ -72,6 +77,22 @@ class AdminPanelProvider extends PanelProvider
                     ->navigationGroup('Settings')
                     ->navigationLabel('Roles')
                     ->navigationSort(30),
+                FlowPlugin::make()
+                    ->resource(AutomationWorkflowResource::class)
+                    ->navigationGroup('Automation')
+                    ->navigationIcon('heroicon-o-bolt')
+                    ->navigationSort(1)
+                    ->models([
+                        PurchaseRequest::class,
+                        PurchaseRequestItem::class,
+                        Quotation::class,
+                        Vendor::class,
+                        ApprovalInstance::class,
+                    ])
+                    ->actions([
+                        NotifyNextApproverAction::class,
+                        UpdatePurchaseRequestStatusAction::class,
+                    ]),
             ])
             ->middleware([
                 EncryptCookies::class,

@@ -517,12 +517,16 @@ final class ProcurementReviewService
 
     private function assertReviewContext(PurchaseRequest $request, User $reviewer): void
     {
-        $assignment = $this->context->assignment();
-        if ($assignment === null
-            || ! $assignment->allows(ProcurementPermissions::UPDATE)
-            || (int) $assignment->office_id !== (int) $request->office_id
-            || ! $this->assignmentMatchesRequest($assignment, $request)) {
-            throw new AuthorizationException('An active procurement review context is required for this purchase request.');
+        // Review lintas assignment: cukup satu assignment aktif dengan
+        // permission UPDATE yang cocok office/branch/department/category
+        // request — tanpa perlu switch context session.
+        $assignment = $this->context->allowedAssignments($reviewer)
+            ->first(fn (UserAssignment $candidate): bool => $candidate->allows(ProcurementPermissions::UPDATE)
+                && (int) $candidate->office_id === (int) $request->office_id
+                && $this->assignmentMatchesRequest($candidate, $request));
+
+        if ($assignment === null) {
+            throw new AuthorizationException('No active assignment authorizes review for this purchase request.');
         }
 
         if (! $reviewer->is(auth()->user())) {

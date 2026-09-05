@@ -68,7 +68,7 @@ final class InvoiceResource extends Resource
             return parent::getEloquentQuery()->whereKey(0);
         }
 
-        return app(MultiOfficeAuthorization::class)->scopeForCurrentContext(
+        return app(MultiOfficeAuthorization::class)->scopeForUser(
             parent::getEloquentQuery()->with([
                 'purchaseOrder.items',
                 'purchaseOrder.goodsReceipts.items',
@@ -85,12 +85,12 @@ final class InvoiceResource extends Resource
 
     public static function canAccess(): bool
     {
-        return app(FeatureModuleService::class)->allowsResource(self::class, fn (User $user): bool => app(AuthorizationService::class)->allows($user, 'ViewAny:Invoice'));
+        return app(FeatureModuleService::class)->allowsResource(self::class, fn (User $user): bool => app(AuthorizationService::class)->allowsAcrossAssignments($user, 'ViewAny:Invoice'));
     }
 
     public static function canViewAny(): bool
     {
-        return app(FeatureModuleService::class)->allowsResource(self::class, fn (User $user): bool => app(AuthorizationService::class)->allows($user, 'ViewAny:Invoice'));
+        return app(FeatureModuleService::class)->allowsResource(self::class, fn (User $user): bool => app(AuthorizationService::class)->allowsAcrossAssignments($user, 'ViewAny:Invoice'));
     }
 
     public static function getPages(): array

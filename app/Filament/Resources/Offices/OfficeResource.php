@@ -38,12 +38,12 @@ class OfficeResource extends Resource
 
     public static function canAccess(): bool
     {
-        return app(FeatureModuleService::class)->allowsResource(self::class, fn (User $user): bool => app(AuthorizationService::class)->allows($user, 'ViewAny:Office'));
+        return app(FeatureModuleService::class)->allowsResource(self::class, fn (User $user): bool => app(AuthorizationService::class)->allowsAcrossAssignments($user, 'ViewAny:Office'));
     }
 
     public static function canViewAny(): bool
     {
-        return app(FeatureModuleService::class)->allowsResource(self::class, fn (User $user): bool => app(AuthorizationService::class)->allows($user, 'ViewAny:Office'));
+        return app(FeatureModuleService::class)->allowsResource(self::class, fn (User $user): bool => app(AuthorizationService::class)->allowsAcrossAssignments($user, 'ViewAny:Office'));
     }
 
     public static function getEloquentQuery(): Builder
@@ -52,7 +52,7 @@ class OfficeResource extends Resource
         $user = Auth::user();
 
         return $user instanceof User
-            ? app(MultiOfficeAuthorization::class)->scopeForCurrentContext(
+            ? app(MultiOfficeAuthorization::class)->scopeForUser(
                 $query,
                 $user,
                 'ViewAny:Office',

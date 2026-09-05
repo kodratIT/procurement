@@ -13,10 +13,11 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
+use Packstub\Flow\Concerns\HasWorkflows;
 
 class PurchaseRequest extends Model
 {
-    use HasFactory, OfficeScoped;
+    use HasFactory, HasWorkflows, OfficeScoped;
 
     public const STATUS_DRAFT = PurchaseRequestStatus::Draft->value;
 

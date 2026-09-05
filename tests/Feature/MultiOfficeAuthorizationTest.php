@@ -2,7 +2,9 @@
 
 namespace Tests\Feature;
 
+use App\Models\AssignmentScope;
 use App\Models\Office;
+use App\Models\ProcurementCategory;
 use App\Models\PurchaseRequest;
 use App\Models\Role;
 use App\Models\User;
@@ -26,15 +28,19 @@ class MultiOfficeAuthorizationTest extends TestCase
         $requestB = PurchaseRequest::factory()->create(['office_id' => $officeB->id]);
 
         $this->actingAs($user);
+        app(AccessContextService::class)->setContext($assignmentA);
         $authorization = app(MultiOfficeAuthorization::class);
 
-        $this->assertTrue(PurchaseRequest::query()->pluck('id')->contains($requestA->id));
-        $this->assertFalse(PurchaseRequest::query()->pluck('id')->contains($requestB->id));
+        $currentContextIds = $authorization
+            ->scopeForCurrentContext(PurchaseRequest::query(), $user)
+            ->pluck('id');
+        $this->assertTrue($currentContextIds->contains($requestA->id));
+        $this->assertFalse($currentContextIds->contains($requestB->id));
         $this->assertTrue($authorization->canUpdate($user, $requestA, true));
 
         app(AccessContextService::class)->setContext($assignmentB);
         $this->assertTrue($authorization->canUpdate($user, $requestB, true));
-        $this->assertFalse($authorization->canUpdate($user, $requestA, true));
+        $this->assertTrue($authorization->canUpdate($user, $requestA, true));
     }
 
     public function test_forged_office_fields_cannot_create_a_transaction(): void
@@ -48,7 +54,7 @@ class MultiOfficeAuthorizationTest extends TestCase
         PurchaseRequest::factory()->create(['office_id' => $unassignedOffice->id]);
     }
 
-    public function test_non_default_office_mutations_require_confirmation(): void
+    public function test_non_default_office_mutations_do_not_require_confirmation(): void
     {
         $this->seed(RolePermissionSeeder::class);
         [$user, $officeA, $officeB, $assignmentA, $assignmentB] = $this->userWithTwoRoles();
@@ -60,9 +66,37 @@ class MultiOfficeAuthorizationTest extends TestCase
         $authorization = app(MultiOfficeAuthorization::class);
 
         $this->assertTrue($context->requiresConfirmation());
-        $this->assertFalse($authorization->canUpdate($user, $requestB));
-        $context->confirmMutation();
         $this->assertTrue($authorization->canUpdate($user, $requestB));
+    }
+
+    public function test_category_scoped_assignment_only_reads_allowed_categories(): void
+    {
+        $this->seed(RolePermissionSeeder::class);
+        [$user, $officeA, , , $assignmentB] = $this->userWithTwoRoles();
+        $allowedCategory = ProcurementCategory::factory()->create();
+        $blockedCategory = ProcurementCategory::factory()->create();
+        AssignmentScope::create([
+            'assignment_id' => $assignmentB->id,
+            'scope_type' => 'category',
+            'scope_id' => $allowedCategory->id,
+        ]);
+        $allowedRequest = PurchaseRequest::factory()->create([
+            'office_id' => $assignmentB->office_id,
+            'category_id' => $allowedCategory->id,
+        ]);
+        $blockedRequest = PurchaseRequest::factory()->create([
+            'office_id' => $assignmentB->office_id,
+            'category_id' => $blockedCategory->id,
+        ]);
+
+        $this->actingAs($user);
+        $ids = app(MultiOfficeAuthorization::class)
+            ->scopeForUser(PurchaseRequest::query(), $user, 'ViewAny:PurchaseRequest')
+            ->pluck('id')
+            ->all();
+
+        $this->assertContains($allowedRequest->id, $ids);
+        $this->assertNotContains($blockedRequest->id, $ids);
     }
 
     /** @return array{User, Office, Office, UserAssignment, UserAssignment} */
