@@ -32,9 +32,9 @@ return new class extends Migration
             $table->json('settings')->nullable();
             $table->timestamps();
 
-            $table->index(['resolver_type', 'is_active', 'valid_from', 'valid_until']);
-            $table->index(['workflow_step_id', 'resolver_type', 'priority']);
-            $table->index(['office_id', 'branch_id', 'department_id', 'cost_center_id']);
+            $table->index(['resolver_type', 'is_active', 'valid_from', 'valid_until'], 'approver_mappings_resolver_validity_index');
+            $table->index(['workflow_step_id', 'resolver_type', 'priority'], 'approver_mappings_step_priority_index');
+            $table->index(['office_id', 'branch_id', 'department_id', 'cost_center_id'], 'approver_mappings_scope_index');
         });
     }
 

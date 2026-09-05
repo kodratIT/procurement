@@ -5,8 +5,9 @@ namespace App\Filament\Resources;
 use App\Filament\Exports\VendorExporter;
 use App\Models\User;
 use App\Models\Vendor;
+use App\Services\AuthorizationService;
+use App\Services\FeatureModuleService;
 use App\Services\MultiOfficeAuthorization;
-use App\Support\ProcurementPermissions;
 use Filament\Actions\Action;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
@@ -32,11 +33,25 @@ class VendorResource extends Resource
 
     protected static string|\BackedEnum|null $navigationIcon = Heroicon::OutlinedBuildingStorefront;
 
-    protected static ?string $navigationLabel = 'Vendor';
+    protected static ?string $navigationLabel = 'Vendors';
+
+    protected static string|\UnitEnum|null $navigationGroup = 'Master Data';
+
+    protected static ?int $navigationSort = 60;
 
     protected static ?string $modelLabel = 'vendor';
 
     protected static ?string $pluralModelLabel = 'vendor';
+
+    public static function canAccess(): bool
+    {
+        return app(FeatureModuleService::class)->allowsResource(self::class, fn (User $user): bool => app(AuthorizationService::class)->allows($user, 'ViewAny:Vendor'));
+    }
+
+    public static function canViewAny(): bool
+    {
+        return app(FeatureModuleService::class)->allowsResource(self::class, fn (User $user): bool => app(AuthorizationService::class)->allows($user, 'ViewAny:Vendor'));
+    }
 
     public static function getEloquentQuery(): Builder
     {
@@ -44,10 +59,10 @@ class VendorResource extends Resource
         $user = Auth::user();
 
         return $user instanceof User
-            ? app(MultiOfficeAuthorization::class)->scopeForUser(
+            ? app(MultiOfficeAuthorization::class)->scopeForCurrentContext(
                 $query,
                 $user,
-                ProcurementPermissions::VIEW,
+                'ViewAny:Vendor',
             )
             : $query->whereKey(0);
     }

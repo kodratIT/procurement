@@ -32,6 +32,8 @@ final class ProcurementPermissions
 
     public const MANAGE_ROLES = 'procurement.manage-roles';
 
+    public const MANAGE_FEATURES = 'procurement.manage-features';
+
     /** @return list<string> */
     public static function all(): array
     {
@@ -49,6 +51,7 @@ final class ProcurementPermissions
             self::CORRECT_RECEIPT,
             self::MANAGE_USERS,
             self::MANAGE_ROLES,
+            self::MANAGE_FEATURES,
         ];
     }
 }

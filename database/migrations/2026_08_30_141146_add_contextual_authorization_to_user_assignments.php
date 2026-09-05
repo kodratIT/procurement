@@ -67,7 +67,7 @@ return new class extends Migration
             $table->string('effect')->default('allow');
             $table->timestamps();
 
-            $table->unique(['assignment_id', 'permission_id']);
+            $table->unique(['assignment_id', 'permission_id'], 'assignment_permission_unique');
             $table->index(['assignment_id', 'effect']);
         });
     }

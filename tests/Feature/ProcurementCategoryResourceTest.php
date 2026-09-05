@@ -27,8 +27,14 @@ class ProcurementCategoryResourceTest extends TestCase
         $panel = Filament::getPanel('admin');
         $admin = User::factory()->create();
         $admin->assignRole('Admin');
+        $office = Office::factory()->create();
+        $adminRole = Role::query()->where('name', 'Admin')->firstOrFail();
+        UserAssignment::factory()->create(['user_id' => $admin->id, 'office_id' => $office->id, 'role_id' => $adminRole->id, 'is_primary' => true]);
         $viewer = User::factory()->create();
         $viewer->assignRole('Viewer');
+        $viewerRole = Role::query()->where('name', 'Viewer')->firstOrFail();
+        $viewerOffice = Office::factory()->create();
+        UserAssignment::factory()->create(['user_id' => $viewer->id, 'office_id' => $viewerOffice->id, 'role_id' => $viewerRole->id, 'is_primary' => true]);
 
         $this->assertContains(ProcurementCategoryResource::class, $panel->getResources());
         $this->assertSame(ProcurementCategory::class, ProcurementCategoryResource::getModel());
@@ -43,6 +49,9 @@ class ProcurementCategoryResourceTest extends TestCase
         $this->seed(ProcurementRolesSeeder::class);
         $admin = User::factory()->create();
         $admin->assignRole('Admin');
+        $office = Office::factory()->create();
+        $adminRole = Role::query()->where('name', 'Admin')->firstOrFail();
+        UserAssignment::factory()->create(['user_id' => $admin->id, 'office_id' => $office->id, 'role_id' => $adminRole->id, 'is_primary' => true]);
         $category = ProcurementCategory::factory()->create();
 
         $this->assertTrue($admin->can('delete', $category));

@@ -7,6 +7,7 @@ namespace App\Policies;
 use App\Models\User;
 use App\Models\VendorItem;
 use App\Services\AuthorizationService;
+use App\Services\FeatureModuleService;
 use App\Support\ProcurementPermissions;
 
 final class VendorItemPolicy
@@ -15,32 +16,32 @@ final class VendorItemPolicy
 
     public function viewAny(User $user): bool
     {
-        return $this->authorization->allows($user, ProcurementPermissions::VIEW);
+        return app(FeatureModuleService::class)->featureIsAvailable('master-data.vendors', $user) && $this->authorization->allows($user, ProcurementPermissions::VIEW);
     }
 
     public function view(User $user, VendorItem $vendorItem): bool
     {
-        return $this->authorization->canManageRecord($user, ProcurementPermissions::VIEW, $vendorItem);
+        return app(FeatureModuleService::class)->featureIsAvailable('master-data.vendors', $user) && $this->authorization->canManageRecord($user, ProcurementPermissions::VIEW, $vendorItem);
     }
 
     public function create(User $user): bool
     {
-        return $this->canManage($user);
+        return app(FeatureModuleService::class)->featureIsAvailable('master-data.vendors', $user) && $this->canManage($user);
     }
 
     public function update(User $user, VendorItem $vendorItem): bool
     {
-        return $this->canManageRecord($user, $vendorItem);
+        return app(FeatureModuleService::class)->featureIsAvailable('master-data.vendors', $user) && $this->canManageRecord($user, $vendorItem);
     }
 
     public function delete(User $user, VendorItem $vendorItem): bool
     {
-        return false;
+        return app(FeatureModuleService::class)->featureIsAvailable('master-data.vendors', $user) && false;
     }
 
     public function deleteAny(User $user): bool
     {
-        return false;
+        return app(FeatureModuleService::class)->featureIsAvailable('master-data.vendors', $user) && false;
     }
 
     private function canManage(User $user): bool

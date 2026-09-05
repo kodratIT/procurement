@@ -10,7 +10,8 @@ use App\Models\Pilgrim;
 use App\Models\UmrahBatch;
 use App\Models\User;
 use App\Services\AccessContextService;
-use App\Support\ProcurementPermissions;
+use App\Services\AuthorizationService;
+use App\Services\FeatureModuleService;
 use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Actions\EditAction;
@@ -41,11 +42,25 @@ class PilgrimResource extends Resource
 
     protected static ?string $recordTitleAttribute = 'name';
 
-    protected static ?string $navigationLabel = 'Jamaah';
+    protected static ?string $navigationLabel = 'Pilgrims';
+
+    protected static string|\UnitEnum|null $navigationGroup = 'Umrah Operations';
+
+    protected static ?int $navigationSort = 10;
 
     protected static ?string $modelLabel = 'jamaah';
 
     protected static ?string $pluralModelLabel = 'jamaah';
+
+    public static function canAccess(): bool
+    {
+        return app(FeatureModuleService::class)->allowsResource(self::class, fn (User $user): bool => app(AuthorizationService::class)->allows($user, 'ViewAny:Pilgrim'));
+    }
+
+    public static function canViewAny(): bool
+    {
+        return app(FeatureModuleService::class)->allowsResource(self::class, fn (User $user): bool => app(AuthorizationService::class)->allows($user, 'ViewAny:Pilgrim'));
+    }
 
     public static function getEloquentQuery(): Builder
     {
@@ -53,7 +68,7 @@ class PilgrimResource extends Resource
         $user = Auth::user();
 
         return $user instanceof User
-            ? $query->acrossContexts(ProcurementPermissions::VIEW)
+            ? $query->acrossContexts('ViewAny:Pilgrim')
             : $query->whereKey(0);
     }
 

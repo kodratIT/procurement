@@ -1,6 +1,9 @@
 <?php
 
 use App\Http\Middleware\EnsureAccessContext;
+use App\Http\Middleware\EnsureActiveOffice;
+use App\Http\Middleware\RequireApplicationAssignment;
+use Illuminate\Contracts\Auth\Middleware\AuthenticatesRequests;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -16,6 +19,14 @@ return Application::configure(basePath: dirname(__DIR__))
             'active.office' => EnsureAccessContext::class,
             'access.context' => EnsureAccessContext::class,
         ]);
+        $middleware->prependToPriorityList(
+            AuthenticatesRequests::class,
+            RequireApplicationAssignment::class,
+        );
+        $middleware->prependToPriorityList(
+            AuthenticatesRequests::class,
+            EnsureActiveOffice::class,
+        );
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(

@@ -31,6 +31,7 @@ final class ProcurementReviewResourceTest extends TestCase
         $pages = ProcurementReviewResource::getPages();
 
         $this->assertContains(ProcurementReviewResource::class, Filament::getPanel('admin')->getResources());
+        $this->assertFalse(ProcurementReviewResource::shouldRegisterNavigation());
         $this->assertSame(PurchaseRequest::class, ProcurementReviewResource::getModel());
         $this->assertSame(ManageProcurementReviews::class, $pages['index']->getPage());
         $this->assertSame(ViewProcurementReview::class, $pages['view']->getPage());

@@ -117,6 +117,11 @@ final class WorkflowPreviewService
                 ->where('is_active', true)
                 ->first();
 
+        // ponytail: JAMAAH/HOTEL/TRANSPORT reference workflows that were never seeded — fallback to standard-procurement instead of throwing
+        if (! $workflow instanceof Workflow || ! $workflow->is_active) {
+            $workflow = Workflow::query()->where('code', 'standard-procurement')->where('is_active', true)->first();
+        }
+
         if (! $workflow instanceof Workflow || ! $workflow->is_active) {
             throw ValidationException::withMessages([
                 'workflow' => 'No active approval workflow is configured for this procurement category.',

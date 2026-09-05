@@ -19,16 +19,19 @@ final class MultiOfficeAuthorization
 {
     public function __construct(private readonly AccessContextService $context) {}
 
-    public function allows(User $user, string $permission, Model|array|null $subject = null): bool
-    {
-        $assignment = $this->assignmentForUser($user, $subject);
+    public function allows(
+        User $user,
+        string $permission,
+        Model|array|null $subject = null,
+        bool $acrossAssignments = false,
+    ): bool {
+        $assignment = $this->assignmentForUser($user, $subject, $acrossAssignments);
 
-        if ($assignment === null && ! $user->assignments()->currentlyActive()->exists()) {
-            return $user->can($permission);
+        if ($assignment === null) {
+            return false;
         }
 
-        return $assignment !== null
-            && $assignment->allows($permission)
+        return $assignment->allows($permission)
             && $this->matchesSubject($assignment, $subject);
     }
 
@@ -44,7 +47,7 @@ final class MultiOfficeAuthorization
 
     public function canCreate(User $user, Model|array|null $subject = null): bool
     {
-        return $this->allows($user, ProcurementPermissions::CREATE, $subject);
+        return $this->allows($user, ProcurementPermissions::CREATE, $subject, acrossAssignments: true);
     }
 
     public function canUpdate(User $user, Model|array|null $subject = null, bool $confirmed = false): bool
@@ -83,6 +86,13 @@ final class MultiOfficeAuthorization
         return ! $this->requiresConfirmation($user, $subject)
             || $confirmed
             || ($user->is(auth()->user()) && $this->context->mutationIsConfirmed());
+    }
+
+    public function authorizeCreate(User $user, Model|array|null $subject, string $permission): void
+    {
+        if (! $this->allows($user, $permission, $subject, acrossAssignments: true)) {
+            throw new AuthorizationException('The active assignment does not authorize this mutation.');
+        }
     }
 
     public function requiresConfirmation(User $user, Model|array|null $subject = null): bool
@@ -177,15 +187,27 @@ final class MultiOfficeAuthorization
         return $query;
     }
 
-    private function assignmentForUser(User $user, Model|array|null $subject = null): ?UserAssignment
-    {
+    private function assignmentForUser(
+        User $user,
+        Model|array|null $subject = null,
+        bool $acrossAssignments = false,
+    ): ?UserAssignment {
         $active = $user->is(auth()->user()) ? $this->context->assignment() : $this->context->defaultContext($user);
 
-        if ($active === null || ! $this->matchesSubject($active, $subject)) {
-            return null;
+        if ($active !== null && $this->matchesSubject($active, $subject)) {
+            return $active;
         }
 
-        return $active;
+        // Some creates target an office the user is actively assigned to but
+        // that is not the active context (master data for a second office).
+        // Allow those when explicitly requested; update/delete stay scoped to
+        // the active context.
+        if ($acrossAssignments && $subject !== null) {
+            return $this->context->allowedAssignments($user)
+                ->first(fn (UserAssignment $assignment): bool => $this->matchesSubject($assignment, $subject));
+        }
+
+        return null;
     }
 
     private function matchesSubject(UserAssignment $assignment, Model|array|null $subject): bool

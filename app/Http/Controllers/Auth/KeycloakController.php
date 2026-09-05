@@ -98,17 +98,32 @@ class KeycloakController extends Controller
 
         Auth::login($user, remember: false);
         $request->session()->regenerate();
+        // Store tokens for proper RP-initiated logout (Keycloak session termination)
+        $request->session()->put('keycloak.tokens', [
+            'id_token' => $token['id_token'] ?? null,
+            'access_token' => $token['access_token'] ?? null,
+            'refresh_token' => $token['refresh_token'] ?? null,
+            'session_state' => $request->query('session_state'),
+        ]);
 
         return redirect()->intended('/admin');
     }
 
     public function logout(Request $request): RedirectResponse
     {
+        // Retrieve tokens before destroying session for Keycloak backchannel logout
+        $tokens = $request->session()->get('keycloak.tokens', []);
+        $idToken = is_array($tokens) ? ($tokens['id_token'] ?? null) : null;
+        $refreshToken = is_array($tokens) ? ($tokens['refresh_token'] ?? null) : null;
+
         Auth::logout();
         $request->session()->invalidate();
         $request->session()->regenerateToken();
 
         if (! config('keycloak.logout_redirect', true)) {
+            // Still try to revoke Keycloak session even without redirect
+            $this->revokeKeycloakSession($refreshToken, $idToken);
+
             return redirect('/');
         }
 
@@ -118,9 +133,37 @@ class KeycloakController extends Controller
             return redirect('/');
         }
 
-        return redirect()->away($config->issuer.'/protocol/openid-connect/logout?'.http_build_query([
-            'client_id' => $config->clientId,
-            'post_logout_redirect_uri' => $config->postLogoutRedirectUri,
-        ], '', '&', PHP_QUERY_RFC3986));
+        // Directly revoke/terminate Keycloak session via backchannel (refresh_token + id_token_hint)
+        $this->revokeKeycloakSession($refreshToken, $idToken);
+
+        $client = new KeycloakClient($config);
+
+        return redirect()->away($client->logoutUrl(
+            is_string($idToken) ? $idToken : null,
+            $config->postLogoutRedirectUri !== '' ? $config->postLogoutRedirectUri : null,
+        ));
+    }
+
+    private function revokeKeycloakSession(mixed $refreshToken, mixed $idToken): void
+    {
+        if (! is_string($refreshToken) || $refreshToken === '') {
+            return;
+        }
+
+        try {
+            $config = KeycloakConfig::fromConfig();
+            $client = new KeycloakClient($config);
+            // Revoke refresh token and backchannel logout to delete Keycloak SSO session
+            $client->revokeToken($refreshToken, 'refresh_token');
+            if (is_string($idToken) && $idToken !== '') {
+                $client->revokeToken($idToken, 'access_token');
+            }
+            $client->backchannelLogout($refreshToken);
+        } catch (Throwable $e) {
+            Log::warning('Keycloak session revocation failed during logout.', [
+                'exception' => $e::class,
+                'message' => $e->getMessage(),
+            ]);
+        }
     }
 }

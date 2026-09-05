@@ -21,8 +21,8 @@ return new class extends Migration
             $table->timestamps();
 
             $table->unique(['delegator_id', 'delegate_id', 'valid_from']);
-            $table->index(['delegator_id', 'is_active', 'valid_from', 'valid_until']);
-            $table->index(['delegate_id', 'is_active', 'valid_from', 'valid_until']);
+            $table->index(['delegator_id', 'is_active', 'valid_from', 'valid_until'], 'approver_delegations_delegator_validity_index');
+            $table->index(['delegate_id', 'is_active', 'valid_from', 'valid_until'], 'approver_delegations_delegate_validity_index');
         });
     }
 

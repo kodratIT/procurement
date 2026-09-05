@@ -54,7 +54,7 @@ final class DistributionForm
                     ->schema([
                         Select::make('procurement_item_id')
                             ->label('Item')
-                            ->options(fn (Get $get): array => self::itemOptions($get->get('../../umrah_batch_id')))
+                            ->options(fn (Get $get): array => self::itemOptions($get->integer('../../umrah_batch_id', isNullable: true)))
                             ->searchable()
                             ->preload()
                             ->required(),

@@ -7,38 +7,39 @@ namespace App\Policies;
 use App\Models\Budget;
 use App\Models\User;
 use App\Services\AuthorizationService;
+use App\Services\FeatureModuleService;
 use App\Support\ProcurementPermissions;
 
 class BudgetPolicy
 {
     public function viewAny(User $user): bool
     {
-        return $this->canManage($user);
+        return app(FeatureModuleService::class)->featureIsAvailable('organization-finance.budgets', $user) && $this->canManage($user);
     }
 
     public function view(User $user, Budget $budget): bool
     {
-        return $this->canManageRecord($user, $budget);
+        return app(FeatureModuleService::class)->featureIsAvailable('organization-finance.budgets', $user) && $this->canManageRecord($user, $budget);
     }
 
     public function create(User $user): bool
     {
-        return $this->canManage($user);
+        return app(FeatureModuleService::class)->featureIsAvailable('organization-finance.budgets', $user) && $this->canManage($user);
     }
 
     public function update(User $user, Budget $budget): bool
     {
-        return $this->canManageRecord($user, $budget);
+        return app(FeatureModuleService::class)->featureIsAvailable('organization-finance.budgets', $user) && $this->canManageRecord($user, $budget);
     }
 
     public function delete(User $user, Budget $budget): bool
     {
-        return false;
+        return app(FeatureModuleService::class)->featureIsAvailable('organization-finance.budgets', $user) && false;
     }
 
     public function deleteAny(User $user): bool
     {
-        return false;
+        return app(FeatureModuleService::class)->featureIsAvailable('organization-finance.budgets', $user) && false;
     }
 
     private function canManage(User $user): bool

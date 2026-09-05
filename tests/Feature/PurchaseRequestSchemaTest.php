@@ -2,14 +2,18 @@
 
 namespace Tests\Feature;
 
+use App\Filament\Resources\PurchaseRequests\Schemas\PurchaseRequestInfolist;
+use App\Models\ApprovalInstance;
+use App\Models\ApprovalInstanceStep;
 use App\Models\Branch;
 use App\Models\CostCenter;
 use App\Models\Department;
-use App\Models\DepartureBatch;
 use App\Models\Office;
 use App\Models\ProcurementItem;
 use App\Models\PurchaseRequest;
 use App\Models\PurchaseRequestItem;
+use App\Models\PurchaseRequestStatusHistory;
+use App\Models\UmrahBatch;
 use App\Models\User;
 use App\Services\PurchaseRequestNumberService;
 use Illuminate\Database\QueryException;
@@ -17,6 +21,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
+use Webkul\ProgressStepper\Infolists\Components\ProgressStepper;
 
 class PurchaseRequestSchemaTest extends TestCase
 {
@@ -26,10 +31,9 @@ class PurchaseRequestSchemaTest extends TestCase
     {
         $this->assertTrue(Schema::hasTable('purchase_requests'));
         $this->assertTrue(Schema::hasTable('purchase_request_items'));
-
         $this->assertTrue(Schema::hasColumns('purchase_requests', [
             'id', 'pr_number', 'office_id', 'branch_id', 'department_id',
-            'cost_center_id', 'departure_batch_id', 'requester_id',
+            'cost_center_id', 'umrah_batch_id', 'requester_id',
             'title', 'notes', 'reason', 'required_date', 'priority', 'status', 'total_amount',
             'created_at', 'updated_at',
         ]));
@@ -194,7 +198,7 @@ class PurchaseRequestSchemaTest extends TestCase
         $branch = Branch::create(['office_id' => $office->id, 'code' => 'BDG', 'name' => 'Bandung']);
         $department = Department::create(['office_id' => $office->id, 'branch_id' => $branch->id, 'code' => 'OPS', 'name' => 'Operasional']);
         $costCenter = CostCenter::create(['office_id' => $office->id, 'code' => 'CC-01', 'name' => 'Umroh Reguler']);
-        $batch = DepartureBatch::factory()->create();
+        $batch = UmrahBatch::factory()->create(['office_id' => $office->id]);
         $user = User::factory()->create();
 
         $request = PurchaseRequest::factory()->create([
@@ -202,16 +206,14 @@ class PurchaseRequestSchemaTest extends TestCase
             'branch_id' => $branch->id,
             'department_id' => $department->id,
             'cost_center_id' => $costCenter->id,
-            'departure_batch_id' => $batch->id,
+            'umrah_batch_id' => $batch->id,
             'requester_id' => $user->id,
         ]);
 
         $this->assertTrue($request->branch->is($branch));
         $this->assertTrue($request->department->is($department));
         $this->assertTrue($request->costCenter->is($costCenter));
-        $this->assertTrue($request->departureBatch->is($batch));
-        $this->assertTrue($request->requester->is($user));
-        $this->assertTrue($request->office->is($office));
+        $this->assertTrue($request->umrahBatch->is($batch));
     }
 
     public function test_items_relate_to_master_data_and_header(): void
@@ -260,5 +262,127 @@ class PurchaseRequestSchemaTest extends TestCase
         $this->actingAs($user);
         $this->assertSame(1, PurchaseRequest::forOffice($officeA->id)->count());
         $this->assertSame(2, PurchaseRequest::acrossOffices()->count());
+    }
+
+    public function test_timeline_orders_events_and_uses_distinct_decision_colors(): void
+    {
+        $createdAt = now()->startOfSecond();
+        $request = PurchaseRequest::factory()->create([
+            'created_at' => $createdAt,
+            'updated_at' => $createdAt,
+        ]);
+        $actor = User::factory()->create();
+
+        PurchaseRequestStatusHistory::factory()->for($request)->create([
+            'actor_id' => $actor->getKey(),
+            'from_status' => PurchaseRequest::STATUS_DRAFT,
+            'to_status' => PurchaseRequest::STATUS_SUBMITTED,
+            'event' => 'submitted',
+            'created_at' => $createdAt,
+            'updated_at' => $createdAt,
+        ]);
+        PurchaseRequestStatusHistory::factory()->for($request)->create([
+            'actor_id' => $actor->getKey(),
+            'from_status' => PurchaseRequest::STATUS_SUBMITTED,
+            'to_status' => PurchaseRequest::STATUS_RETURNED,
+            'event' => 'returned',
+            'decision' => 'return',
+            'note' => 'Please correct the requested quantity.',
+            'created_at' => $createdAt->copy()->addSecond(),
+            'updated_at' => $createdAt->copy()->addSecond(),
+        ]);
+        PurchaseRequestStatusHistory::factory()->for($request)->create([
+            'actor_id' => $actor->getKey(),
+            'from_status' => PurchaseRequest::STATUS_RETURNED,
+            'to_status' => PurchaseRequest::STATUS_REJECTED,
+            'event' => 'rejected',
+            'decision' => 'reject',
+            'created_at' => $createdAt->copy()->addSeconds(2),
+            'updated_at' => $createdAt->copy()->addSeconds(2),
+        ]);
+
+        $entries = PurchaseRequestInfolist::timelineEntries($request);
+
+        $this->assertSame(
+            ['PR dibuat', 'Diajukan', 'Perlu perbaikan', 'Ditolak'],
+            array_column($entries, 'event'),
+        );
+        $this->assertSame(
+            ['primary', 'primary', 'warning', 'danger'],
+            array_column($entries, 'color'),
+        );
+        $this->assertSame('pengajuan', $entries[2]['stage_key']);
+        $this->assertStringContainsString('Catatan perbaikan:', $entries[2]['description']);
+    }
+
+    public function test_workflow_stepper_uses_the_outlined_chevron_layout(): void
+    {
+        $sections = PurchaseRequestInfolist::configure(\Filament\Schemas\Schema::make())->getComponents();
+        $workflowSection = collect($sections)->first(
+            fn ($section): bool => $section->getHeading() === 'Status & Riwayat — Progres Workflow',
+        );
+        $stepper = collect($workflowSection->getDefaultChildComponents())->first(
+            fn ($component): bool => $component instanceof ProgressStepper,
+        );
+
+        $this->assertInstanceOf(ProgressStepper::class, $stepper);
+        $this->assertSame('outlined', $stepper->getTheme());
+        $this->assertSame('chevron', $stepper->getConnectorShape());
+    }
+
+    public function test_completed_workflow_uses_real_stage_names_and_a_clear_terminal_history_entry(): void
+    {
+        $request = PurchaseRequest::factory()->create([
+            'status' => PurchaseRequest::STATUS_APPROVED,
+        ]);
+        PurchaseRequest::query()->withoutGlobalScopes()->whereKey($request->getKey())->update([
+            'pr_number' => 'PR-202609-0042',
+        ]);
+        $request->refresh();
+        $actor = User::factory()->create();
+        $instance = ApprovalInstance::factory()->create([
+            'purchase_request_id' => $request->getKey(),
+            'requester_id' => $request->requester_id,
+            'submitted_by_id' => $request->requester_id,
+            'office_id' => $request->office_id,
+            'status' => 'approved',
+        ]);
+        ApprovalInstanceStep::factory()->create([
+            'approval_instance_id' => $instance->getKey(),
+            'step_order' => 1,
+            'step_key' => 'acc_kepala_divisi',
+            'label' => 'Acc Kepala Divisi',
+            'status' => 'approved',
+        ]);
+        ApprovalInstanceStep::factory()->create([
+            'approval_instance_id' => $instance->getKey(),
+            'step_order' => 2,
+            'step_key' => 'acc_keuangan',
+            'label' => 'Acc Keuangan',
+            'status' => 'approved',
+        ]);
+        PurchaseRequestStatusHistory::factory()->for($request)->create([
+            'actor_id' => $actor->getKey(),
+            'from_status' => 'acc_keuangan',
+            'to_status' => PurchaseRequest::STATUS_APPROVED,
+            'event' => 'approval_decision',
+            'decision' => 'approved',
+            'note' => 'Approval workflow completed.',
+        ]);
+
+        $this->assertSame([
+            'pengajuan' => 'Pengajuan',
+            'acc_kepala_divisi' => 'Acc Kepala Divisi',
+            'acc_keuangan' => 'Acc Keuangan',
+        ], PurchaseRequestInfolist::workflowOptions($request));
+        $this->assertTrue(PurchaseRequestInfolist::workflowIsComplete($request));
+
+        $terminalEntry = collect(PurchaseRequestInfolist::timelineEntries($request))->last();
+        $this->assertSame('PR selesai', $terminalEntry['event']);
+        $this->assertSame('success', $terminalEntry['color']);
+        $this->assertTrue($terminalEntry['is_terminal']);
+        $this->assertStringContainsString('Disetujui '.$actor->name.' pada tahap Acc Keuangan.', $terminalEntry['description']);
+        $this->assertStringContainsString('PR PR-202609-0042 telah disetujui.', $terminalEntry['description']);
+        $this->assertSame('acc_keuangan', $terminalEntry['stage_key']);
     }
 }

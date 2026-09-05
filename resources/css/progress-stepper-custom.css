@@ -1,0 +1,595 @@
+/**
+ * Progress Stepper — Custom Override (AUREUS)
+ * File ini di resources/css (bukan vendor) jadi aman saat composer install / pindah data.
+ * Ubah desain di sini tanpa sentuh vendor/aureuserp/progress-stepper.
+ *
+ * Tema bisa dikustom via CSS variables yang sudah dipakai plugin:
+ *   --ps-color-500 / --ps-color-600  → warna untuk setiap status (primary/success/danger)
+ *   Atau override langsung selector .ps-container / .ps-step / .ps-button
+ */
+
+/* 1) Segmented chevron stepper — rapi, ringan, dan tetap satu baris */
+.ps-container.fi-progress-stepper {
+    flex-wrap: nowrap !important;
+    width: 100% !important;
+    overflow-x: auto !important;
+    border: 0;
+    border-radius: 0.625rem;
+    background: #fff;
+    scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none; /* IE/Edge */
+}
+
+.dark .ps-container.fi-progress-stepper {
+    background: #111827;
+}
+
+.ps-container.fi-progress-stepper::-webkit-scrollbar {
+    display: none; /* Chrome/Safari */
+}
+
+.ps-container.fi-progress-stepper .ps-step {
+    flex: 1 1 0% !important;
+    min-width: 0 !important;
+}
+
+/* Pastikan chevron tahap sebelumnya selalu berada di atas tahap berikutnya. */
+.ps-container.fi-progress-stepper[data-ps-direction="horizontal"] .ps-step {
+    z-index: 1;
+}
+
+.ps-container.fi-progress-stepper[data-ps-direction="horizontal"] .ps-step:nth-child(1) { z-index: 10; }
+.ps-container.fi-progress-stepper[data-ps-direction="horizontal"] .ps-step:nth-child(2) { z-index: 9; }
+.ps-container.fi-progress-stepper[data-ps-direction="horizontal"] .ps-step:nth-child(3) { z-index: 8; }
+.ps-container.fi-progress-stepper[data-ps-direction="horizontal"] .ps-step:nth-child(4) { z-index: 7; }
+.ps-container.fi-progress-stepper[data-ps-direction="horizontal"] .ps-step:nth-child(5) { z-index: 6; }
+.ps-container.fi-progress-stepper[data-ps-direction="horizontal"] .ps-step:nth-child(6) { z-index: 5; }
+.ps-container.fi-progress-stepper[data-ps-direction="horizontal"] .ps-step:nth-child(7) { z-index: 4; }
+.ps-container.fi-progress-stepper[data-ps-direction="horizontal"] .ps-step:nth-child(8) { z-index: 3; }
+
+.ps-container.fi-progress-stepper .ps-button {
+    width: 100% !important;
+    min-height: 4.5rem;
+    gap: 0.75rem;
+    justify-content: center !important;
+    border: 0 !important;
+    background: #fff !important;
+    color: #64748b;
+    overflow: visible;
+    padding-right: 2.5rem !important;
+    padding-left: 1.5rem !important;
+    white-space: normal !important;
+}
+
+.dark .ps-container.fi-progress-stepper .ps-button {
+    background: #111827 !important;
+    color: #94a3b8;
+}
+
+.ps-container.fi-progress-stepper .ps-label {
+    min-width: 0;
+    max-width: 100%;
+    text-align: left;
+}
+
+.ps-container.fi-progress-stepper .ps-label-text {
+    min-width: 0;
+    max-width: 100%;
+    overflow-wrap: anywhere;
+    white-space: normal;
+}
+
+.ps-container.fi-progress-stepper .ps-description {
+    white-space: normal;
+}
+
+.ps-container.fi-progress-stepper[data-ps-direction="horizontal"][data-ps-separator="chevron"] .ps-button::after {
+    z-index: 2;
+    /* Kotak diputar 45° sehingga diagonalnya menyentuh atas dan bawah bar. */
+    width: 2.8rem;
+    height: 3.6rem;
+    right: -1.4rem;
+    border-radius: 0.35rem;
+    border-top-color: #9ca3af;
+    border-right-color: #9ca3af;
+    background: inherit !important;
+}
+
+.dark .ps-container.fi-progress-stepper[data-ps-direction="horizontal"][data-ps-separator="chevron"] .ps-button::after {
+    border-top-color: #fff;
+    border-right-color: #fff;
+}
+
+/* 2) Status tampil melalui indikator bulat, bukan blok warna penuh. */
+.ps-container .ps-step[data-ps-status="completed"] .ps-button {
+    --ps-color-500: #16a34a;
+    --ps-color-600: #15803d;
+    background: #dcfce7 !important;
+    color: #15803d !important;
+}
+
+.ps-container .ps-step[data-ps-status="current"] .ps-button {
+    --ps-color-500: #2563eb;
+    --ps-color-600: #1d4ed8;
+    background: #dbeafe !important;
+    color: #1d4ed8 !important;
+}
+
+.ps-container .ps-step[data-ps-status="upcoming"] .ps-button {
+    background: #e2e8f0 !important;
+    color: #64748b !important;
+}
+
+.ps-container .ps-step[data-ps-status="error"] .ps-button {
+    background: #fef2f2 !important;
+    color: #dc2626 !important;
+}
+
+.dark .ps-container .ps-step[data-ps-status="completed"] .ps-button {
+    background: #166534 !important;
+    color: #86efac !important;
+}
+
+.dark .ps-container .ps-step[data-ps-status="current"] .ps-button {
+    background: #1d4ed8 !important;
+    color: #93c5fd !important;
+}
+
+.dark .ps-container .ps-step[data-ps-status="upcoming"] .ps-button {
+    background: #334155 !important;
+    color: #94a3b8 !important;
+}
+
+.dark .ps-container .ps-step[data-ps-status="error"] .ps-button {
+    background: #450a0a !important;
+    color: #fca5a5 !important;
+}
+
+.ps-status-indicator {
+    position: relative;
+    z-index: 3;
+    display: inline-flex;
+    width: 2.25rem;
+    height: 2.25rem;
+    flex: 0 0 2.25rem;
+    align-items: center;
+    justify-content: center;
+    border: 2px solid #cbd5e1;
+    border-radius: 9999px;
+    background: #fff;
+    color: #64748b;
+    font-size: 0.75rem;
+    font-weight: 600;
+    line-height: 1;
+}
+
+.dark .ps-status-indicator {
+    border-color: #475569;
+    background: #111827;
+    color: #94a3b8;
+}
+
+.ps-step[data-ps-status="completed"] .ps-status-indicator {
+    border-color: #16a34a;
+    background: #16a34a;
+    color: #fff;
+}
+
+.ps-step[data-ps-status="current"] .ps-status-indicator {
+    border-color: #2563eb;
+    background: #eff6ff;
+    color: #2563eb;
+}
+
+.dark .ps-step[data-ps-status="current"] .ps-status-indicator {
+    background: #172554;
+    color: #93c5fd;
+}
+
+.ps-step[data-ps-status="error"] .ps-status-indicator {
+    border-color: #dc2626;
+    background: #dc2626;
+    color: #fff;
+}
+
+.ps-status-icon {
+    width: 1.125rem;
+    height: 1.125rem;
+}
+
+/* 2b) Current berdenyut sangat halus tanpa menggeser susunan tahap. */
+@keyframes ps-pulse-subtle {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.2); }
+    50% { box-shadow: 0 0 0 5px rgba(37, 99, 235, 0); }
+}
+
+.ps-container.ps-animated .ps-step[data-ps-status="current"] .ps-status-indicator {
+    animation: ps-pulse-subtle 2.2s ease-in-out infinite;
+    will-change: box-shadow;
+}
+
+.ps-container.ps-workflow-complete .ps-step .ps-button {
+    --ps-color-500: #16a34a;
+    --ps-color-600: #15803d;
+    background: #dcfce7 !important;
+    color: #15803d !important;
+    animation: none !important;
+}
+
+.ps-container.ps-workflow-complete[data-ps-separator="chevron"] .ps-step .ps-button::after {
+    border-top-color: #9ca3af;
+    border-right-color: #9ca3af;
+}
+
+.dark .ps-container.ps-workflow-complete .ps-step .ps-button {
+    background: #166534 !important;
+    color: #bbf7d0 !important;
+}
+
+.dark .ps-container.ps-workflow-complete[data-ps-separator="chevron"] .ps-step .ps-button::after {
+    border-top-color: #fff;
+    border-right-color: #fff;
+}
+
+/* Hilangkan shimmer di completed agar lebih profesional */
+.ps-container.ps-animated .ps-step[data-ps-status="completed"] .ps-button::before {
+    display: none;
+}
+
+/* 3) Di layar kecil, pertahankan ukuran tahap dan gunakan scroll horizontal. */
+@media (max-width: 768px) {
+    .ps-container.fi-progress-stepper .ps-step {
+        flex: 0 0 13rem !important;
+    }
+
+    .ps-container.fi-progress-stepper .ps-button {
+        min-height: 4rem;
+        padding-right: 2.5rem !important;
+        padding-left: 1rem !important;
+    }
+
+    .ps-container.fi-progress-stepper .ps-label-text {
+        font-size: 0.875rem;
+    }
+}
+
+/* 3b) Bentuk chevron bertumpuk mengikuti desain referensi. */
+.ps-container.fi-progress-stepper[data-ps-direction="horizontal"] {
+    overflow-y: hidden !important;
+}
+
+.ps-container.fi-progress-stepper[data-ps-direction="horizontal"] .ps-step {
+    position: relative;
+    margin-left: -0.75rem;
+    overflow: visible;
+    clip-path: polygon(
+        0 0,
+        calc(100% - 1rem) 0,
+        100% 50%,
+        calc(100% - 1rem) 100%,
+        0 100%,
+        1rem 50%
+    );
+}
+
+.ps-container.fi-progress-stepper[data-ps-direction="horizontal"] .ps-step:first-child {
+    margin-left: 0;
+    clip-path: polygon(
+        0 0,
+        calc(100% - 1rem) 0,
+        100% 50%,
+        calc(100% - 1rem) 100%,
+        0 100%
+    );
+}
+
+.ps-container.fi-progress-stepper[data-ps-direction="horizontal"] .ps-step:last-child {
+    clip-path: polygon(
+        0 0,
+        100% 0,
+        100% 100%,
+        0 100%,
+        1rem 50%
+    );
+}
+
+.ps-container.fi-progress-stepper[data-ps-direction="horizontal"] .ps-step .ps-button {
+    min-height: 4.5rem;
+    padding-right: 2rem !important;
+    padding-left: 2rem !important;
+}
+
+.ps-container.fi-progress-stepper[data-ps-direction="horizontal"] .ps-step .ps-button::after {
+    content: none !important;
+}
+
+/* Warna bar: selesai hijau muda, current biru, belum dimulai abu-abu. */
+.ps-container.fi-progress-stepper[data-ps-direction="horizontal"] .ps-step[data-ps-status="completed"] .ps-button {
+    background: #d1fae5 !important;
+    color: #065f46 !important;
+}
+
+.ps-container.fi-progress-stepper[data-ps-direction="horizontal"] .ps-step[data-ps-status="current"] .ps-button {
+    background: #2563eb !important;
+    color: #fff !important;
+}
+
+.ps-container.fi-progress-stepper[data-ps-direction="horizontal"] .ps-step[data-ps-status="upcoming"] .ps-button {
+    background: rgba(226, 232, 240, 0.8) !important;
+    color: #334155 !important;
+}
+
+.dark .ps-container.fi-progress-stepper[data-ps-direction="horizontal"] .ps-step[data-ps-status="completed"] .ps-button {
+    background: #166534 !important;
+    color: #bbf7d0 !important;
+}
+
+.dark .ps-container.fi-progress-stepper[data-ps-direction="horizontal"] .ps-step[data-ps-status="current"] .ps-button {
+    background: #2563eb !important;
+    color: #fff !important;
+}
+
+.dark .ps-container.fi-progress-stepper[data-ps-direction="horizontal"] .ps-step[data-ps-status="upcoming"] .ps-button {
+    background: #334155 !important;
+    color: #cbd5e1 !important;
+}
+
+.ps-container.fi-progress-stepper[data-ps-direction="horizontal"] .ps-step[data-ps-status="current"] .ps-status-indicator {
+    border-color: #fff;
+    background: #fff;
+    color: #2563eb;
+}
+
+.dark .ps-container.fi-progress-stepper[data-ps-direction="horizontal"] .ps-step[data-ps-status="current"] .ps-status-indicator {
+    border-color: #fff;
+    background: #fff;
+    color: #2563eb;
+}
+
+@media (max-width: 768px) {
+    .ps-container.fi-progress-stepper[data-ps-direction="horizontal"] .ps-step {
+        flex-basis: 15rem !important;
+    }
+
+    .ps-container.fi-progress-stepper[data-ps-direction="horizontal"] .ps-step .ps-button {
+        padding-right: 2rem !important;
+        padding-left: 1.75rem !important;
+    }
+}
+
+/* 3c) Animasi masuk bertahap dan feedback hover yang halus. */
+@keyframes ps-stage-enter {
+    from {
+        opacity: 0;
+        transform: translateX(-0.5rem);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+.ps-container.fi-progress-stepper.ps-animated .ps-step .ps-button {
+    animation: ps-stage-enter 0.45s ease-out both;
+    transition: filter 150ms ease, transform 150ms ease;
+}
+
+.ps-container.fi-progress-stepper.ps-animated .ps-step:nth-child(1) .ps-button { animation-delay: 0.05s; }
+.ps-container.fi-progress-stepper.ps-animated .ps-step:nth-child(2) .ps-button { animation-delay: 0.12s; }
+.ps-container.fi-progress-stepper.ps-animated .ps-step:nth-child(3) .ps-button { animation-delay: 0.19s; }
+.ps-container.fi-progress-stepper.ps-animated .ps-step:nth-child(4) .ps-button { animation-delay: 0.26s; }
+.ps-container.fi-progress-stepper.ps-animated .ps-step:nth-child(5) .ps-button { animation-delay: 0.33s; }
+.ps-container.fi-progress-stepper.ps-animated .ps-step:nth-child(6) .ps-button { animation-delay: 0.40s; }
+
+.ps-container.fi-progress-stepper.ps-animated .ps-step .ps-button:hover {
+    filter: brightness(0.97);
+}
+
+.dark .ps-container.fi-progress-stepper.ps-animated .ps-step .ps-button:hover {
+    filter: brightness(1.1);
+}
+
+/* Pulse current selalu aktif selama ada tahap yang sedang berjalan. */
+@keyframes ps-active-pulse {
+    0% {
+        box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.8);
+    }
+
+    70% {
+        box-shadow: 0 0 0 8px rgba(255, 255, 255, 0);
+    }
+
+    100% {
+        box-shadow: 0 0 0 0 rgba(255, 255, 255, 0);
+    }
+}
+
+.ps-container.fi-progress-stepper .ps-step[data-ps-status="current"] .ps-status-indicator {
+    animation: ps-active-pulse 1.8s ease-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .ps-container.fi-progress-stepper.ps-animated .ps-step .ps-button,
+    .ps-container.ps-animated .ps-step[data-ps-status="current"] .ps-status-indicator,
+    .ps-container.fi-progress-stepper .ps-step[data-ps-status="current"] .ps-status-indicator {
+        animation: none !important;
+        transition: none !important;
+    }
+}
+
+/* 4) Activity timeline — vertical layout based on the reference design */
+.pr-history-timeline {
+    --pr-history-accent: #6366f1;
+    --pr-history-line: #6366f1;
+    --pr-history-title: #111827;
+    --pr-history-description: #6b7280;
+    --pr-history-muted: #9ca3af;
+    padding: 0.5rem 0;
+}
+
+.dark .pr-history-timeline {
+    --pr-history-title: #f3f4f6;
+    --pr-history-description: #9ca3af;
+    --pr-history-muted: #6b7280;
+}
+
+.pr-history-item {
+    --pr-history-accent: #6366f1;
+    --pr-history-line: #6366f1;
+    display: flex;
+    gap: 1rem;
+    min-height: 4rem;
+}
+
+.pr-history-item.is-success {
+    --pr-history-accent: #16a34a;
+    --pr-history-line: #16a34a;
+}
+
+.pr-history-item.is-warning {
+    --pr-history-accent: #d97706;
+    --pr-history-line: #d97706;
+}
+
+.pr-history-item.is-danger {
+    --pr-history-accent: #dc2626;
+    --pr-history-line: #dc2626;
+}
+
+.pr-history-marker-column {
+    display: flex;
+    width: 2rem;
+    flex: 0 0 2rem;
+    flex-direction: column;
+    align-items: center;
+}
+
+.pr-history-marker {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    width: 2rem;
+    height: 2rem;
+    flex: 0 0 2rem;
+    align-items: center;
+    justify-content: center;
+    border: 2px solid #4b5563;
+    border-radius: 9999px;
+    background: #fff;
+}
+
+.dark .pr-history-marker {
+    background: #111827;
+}
+
+.pr-history-item.is-completed .pr-history-marker {
+    border-color: var(--pr-history-accent);
+    background: var(--pr-history-accent);
+    color: #fff;
+}
+
+.pr-history-item.is-current .pr-history-marker {
+    border-color: var(--pr-history-accent);
+    color: var(--pr-history-accent);
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--pr-history-accent) 10%, transparent);
+}
+
+.pr-history-marker-check {
+    width: 1rem;
+    height: 1rem;
+}
+
+.pr-history-marker-icon {
+    width: 1rem;
+    height: 1rem;
+}
+
+.pr-history-marker-symbol {
+    font-size: 1rem;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.pr-history-marker-dot {
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: 9999px;
+    background: var(--pr-history-accent);
+}
+
+.pr-history-connector {
+    width: 2px;
+    min-height: 2rem;
+    flex: 1;
+    margin-top: 0.25rem;
+    border-radius: 9999px;
+    background: var(--pr-history-line);
+}
+
+.pr-history-content {
+    min-width: 0;
+    flex: 1;
+    padding-bottom: 1.5rem;
+}
+
+.pr-history-title {
+    color: var(--pr-history-title);
+    font-size: 0.875rem;
+    font-weight: 600;
+    line-height: 1.25rem;
+}
+
+.pr-history-item.is-current .pr-history-title {
+    color: var(--pr-history-accent);
+}
+
+.pr-history-description {
+    color: var(--pr-history-description);
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+}
+
+.pr-history-meta {
+    color: var(--pr-history-muted);
+    font-size: 0.75rem;
+    line-height: 1rem;
+    margin-top: 0.25rem;
+}
+
+/* 4b) Modal history — batasi 4 item + scroll, agar tidak penuh layar saat banyak aktivitas */
+.pr-history-scrollable {
+    max-height: 22rem; /* ~4 item x ~5.5rem, fallback jika tailwind belum build */
+    scrollbar-width: thin;
+    scrollbar-color: #cbd5e1 transparent;
+    scroll-behavior: smooth;
+}
+
+.pr-history-scrollable::-webkit-scrollbar {
+    width: 6px;
+}
+
+.pr-history-scrollable::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.pr-history-scrollable::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 9999px;
+}
+
+.pr-history-scrollable::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+}
+
+.dark .pr-history-scrollable {
+    scrollbar-color: #475569 transparent;
+}
+
+.dark .pr-history-scrollable::-webkit-scrollbar-thumb {
+    background: #475569;
+}
+
+.dark .pr-history-scrollable::-webkit-scrollbar-thumb:hover {
+    background: #64748b;
+}

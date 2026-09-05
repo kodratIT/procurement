@@ -10,7 +10,9 @@ use App\Models\Branch;
 use App\Models\CostCenter;
 use App\Models\Department;
 use App\Models\Office;
+use App\Models\Role;
 use App\Models\User;
+use App\Models\UserAssignment;
 use Database\Seeders\ProcurementRolesSeeder;
 use Filament\Facades\Filament;
 use Illuminate\Database\QueryException;
@@ -29,8 +31,14 @@ class OrganizationResourceTest extends TestCase
         $panel = Filament::getPanel('admin');
         $admin = User::factory()->create();
         $admin->assignRole('Admin');
+        $office = Office::factory()->create();
+        $adminRole = Role::query()->where('name', 'Admin')->firstOrFail();
+        UserAssignment::factory()->create(['user_id' => $admin->id, 'office_id' => $office->id, 'role_id' => $adminRole->id, 'is_primary' => true]);
         $viewer = User::factory()->create();
         $viewer->assignRole('Viewer');
+        $viewerRole = Role::query()->where('name', 'Viewer')->firstOrFail();
+        $viewerOffice = Office::factory()->create();
+        UserAssignment::factory()->create(['user_id' => $viewer->id, 'office_id' => $viewerOffice->id, 'role_id' => $viewerRole->id, 'is_primary' => true]);
 
         foreach ([
             OfficeResource::class => Office::class,
@@ -147,6 +155,9 @@ class OrganizationResourceTest extends TestCase
         $this->seed(ProcurementRolesSeeder::class);
         $admin = User::factory()->create();
         $admin->assignRole('Admin');
+        $office = Office::factory()->create();
+        $adminRole = Role::query()->where('name', 'Admin')->firstOrFail();
+        UserAssignment::factory()->create(['user_id' => $admin->id, 'office_id' => $office->id, 'role_id' => $adminRole->id, 'is_primary' => true]);
 
         foreach ([Office::class, Branch::class, Department::class, CostCenter::class] as $model) {
             $this->assertFalse($admin->can('deleteAny', $model));

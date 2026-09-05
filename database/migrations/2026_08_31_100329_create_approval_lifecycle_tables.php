@@ -11,6 +11,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('approval_instance_steps', function (Blueprint $table): void {
+            $table->index(['approval_instance_id', 'step_order', 'status'], 'approval_steps_instance_status_index');
             $table->dropUnique(['approval_instance_id', 'step_order']);
             $table->string('approval_mode', 30)->default('sequential')->after('resolver_type');
             $table->string('step_type', 30)->nullable()->after('approval_mode');
@@ -25,7 +26,6 @@ return new class extends Migration
             $table->timestamp('escalated_at')->nullable()->after('expired_at');
             $table->timestamp('completed_at')->nullable()->after('escalated_at');
             $table->foreignId('original_approver_id')->nullable()->after('approver_id')->constrained('users')->nullOnDelete();
-            $table->index(['approval_instance_id', 'step_order', 'status']);
             $table->index(['approver_id', 'status', 'due_at']);
         });
 
@@ -70,7 +70,7 @@ return new class extends Migration
 
         Schema::table('approval_instance_steps', function (Blueprint $table): void {
             $table->dropForeign(['original_approver_id']);
-            $table->dropIndex(['approval_instance_id', 'step_order', 'status']);
+            $table->dropIndex('approval_steps_instance_status_index');
             $table->dropIndex(['approver_id', 'status', 'due_at']);
             $table->dropColumn([
                 'approval_mode',

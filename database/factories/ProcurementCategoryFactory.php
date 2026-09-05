@@ -1,12 +1,14 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Database\Factories;
 
 use App\Enums\ProcurementCategoryType;
 use App\Enums\ProcurementFieldType;
-use App\Models\DepartureBatch;
 use App\Models\ProcurementCategory;
 use App\Models\ProcurementField;
+use App\Models\UmrahBatch;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
@@ -30,6 +32,8 @@ class ProcurementCategoryFactory extends Factory
             'requires_jamaah' => false,
             'requires_vendor' => false,
             'requires_quotation' => false,
+            'requires_recommendation_reason' => false,
+            'requires_recommendation_evidence' => false,
             'requires_receipt' => false,
             'requires_invoice' => false,
             'requires_po' => false,
@@ -43,7 +47,7 @@ class ProcurementCategoryFactory extends Factory
     public function withSupplyFields(): static
     {
         return $this->afterCreating(function (ProcurementCategory $category): void {
-            $batch = DepartureBatch::factory()->create();
+            $batch = UmrahBatch::factory()->create();
 
             ProcurementField::create([
                 'category_id' => $category->getKey(),

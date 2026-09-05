@@ -22,6 +22,10 @@ final class ProcurementRequestSubmitter
         private readonly PurchaseRequestNumberService $numbers,
         private readonly PurchaseRequestTimeline $timeline,
         private readonly DomainTransaction $transaction,
+        private readonly FeatureModuleService $featureModules,
+        private readonly WorkflowPreviewService $workflowPreview,
+        private readonly ApprovalInstanceCreator $approvalInstances,
+        private readonly WorkflowStageService $workflowStages,
     ) {}
 
     public function submit(PurchaseRequest $request, ?User $submitter = null): PurchaseRequest
@@ -31,6 +35,8 @@ final class ProcurementRequestSubmitter
         if (! $submitter instanceof User || ! $submitter->is_active) {
             throw new AuthorizationException('An active authenticated submitter is required.');
         }
+
+        $this->featureModules->assertEnabled(FeatureRegistry::FEATURE_REQUESTS, $submitter);
 
         Gate::forUser($submitter)->authorize('submit', $request);
 
@@ -49,6 +55,24 @@ final class ProcurementRequestSubmitter
                     ->findOrFail($request->getKey());
 
                 $this->validateFinalSubmission($locked);
+
+                $locked->loadMissing(['category']);
+                $workflowCode = $locked->category?->workflow_reference;
+                $shouldBypassProcurement = is_string($workflowCode) && $workflowCode !== '' && $workflowCode !== 'standard-procurement';
+                $preview = null;
+
+                if ($shouldBypassProcurement) {
+                    $preview = $this->workflowPreview->preview($locked, $submitter);
+                    $errors = array_values(array_filter($preview['errors'] ?? []));
+
+                    if (($preview['can_handoff'] ?? false) !== true || empty($preview['resolution']['steps'])) {
+                        throw ValidationException::withMessages([
+                            'workflow' => $errors !== []
+                                ? $errors
+                                : ['Workflow belum dapat dijalankan karena approver belum lengkap.'],
+                        ]);
+                    }
+                }
 
                 $fromStatus = $locked->status;
                 $number = $fromStatus === PurchaseRequestStatus::Returned->value
@@ -72,10 +96,41 @@ final class ProcurementRequestSubmitter
                     $fromStatus === PurchaseRequestStatus::Returned->value ? 'resubmitted' : 'submitted',
                     'submit',
                     $fromStatus === PurchaseRequestStatus::Returned->value
-                        ? 'Purchase request corrected and resubmitted.'
-                        : 'Purchase request submitted for procurement review.',
+                        ? "PR {$locked->pr_number} telah diperbaiki dan diajukan ulang oleh {$submitter->name}."
+                        : "PR {$locked->pr_number} diajukan oleh {$submitter->name} dan menunggu proses persetujuan.",
                 );
                 $this->audit($locked, $submitter, $fromStatus);
+
+                // Dynamic workflow is handed off directly to its first approver.
+                if ($shouldBypassProcurement) {
+                    $firstStep = collect($preview['resolution']['steps'])->firstWhere(fn ($s) => ($s['applicable'] ?? true) && ($s['status'] ?? null) !== 'skipped' && ($s['status'] ?? null) !== 'unresolved');
+                    $nextStatus = $firstStep['step_key'] ?? null;
+
+                    if (! is_array($firstStep) || ! is_string($nextStatus) || $nextStatus === '') {
+                        throw ValidationException::withMessages([
+                            'workflow' => ['Workflow belum memiliki tahap approval yang dapat dijalankan.'],
+                        ]);
+                    }
+
+                    $instance = $this->approvalInstances->create($locked, $submitter, $preview['resolution']);
+                    $fromSubmitted = $locked->status;
+                    PurchaseRequest::query()->withoutGlobalScopes()->whereKey($locked->getKey())->update([
+                        'status' => $nextStatus,
+                        'updated_at' => now(),
+                    ]);
+                    $locked->refresh();
+                    $firstApprover = $firstStep['approver_name'] ?? 'approver';
+                    $this->timeline->record(
+                        $locked,
+                        $submitter,
+                        $fromSubmitted,
+                        $nextStatus,
+                        'approval_handoff',
+                        'handoff',
+                        "PR masuk ke tahap {$firstStep['label']} dan menunggu persetujuan {$firstApprover}.",
+                        ['approval_instance_id' => $instance->getKey(), 'workflow' => $preview['workflow'], 'auto' => true],
+                    );
+                }
 
                 return $locked->refresh();
             },
@@ -97,8 +152,8 @@ final class ProcurementRequestSubmitter
 
         if ($request->category === null || ! $request->category->is_active) {
             $errors['category_id'] = 'An active procurement category is required before submission.';
-        } elseif ($request->category->configuration()->requiresBatch() && $request->departure_batch_id === null) {
-            $errors['departure_batch_id'] = 'A departure batch is required for this procurement category.';
+        } elseif ($request->category->configuration()->requiresBatch() && $request->umrah_batch_id === null) {
+            $errors['umrah_batch_id'] = 'A umrah batch is required for this procurement category.';
         }
 
         if (blank($request->reason)) {

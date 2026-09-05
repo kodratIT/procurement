@@ -5,43 +5,44 @@ namespace App\Policies;
 use App\Models\Department;
 use App\Models\User;
 use App\Services\AuthorizationService;
+use App\Services\FeatureModuleService;
 use App\Support\ProcurementPermissions;
 
 class DepartmentPolicy
 {
     public function viewAny(User $user): bool
     {
-        return $this->canManage($user);
+        return app(FeatureModuleService::class)->featureIsAvailable('organization-finance.departments', $user) && $this->canManage($user);
     }
 
     public function view(User $user, Department $department): bool
     {
-        return $this->canManageRecord($user, $department);
+        return app(FeatureModuleService::class)->featureIsAvailable('organization-finance.departments', $user) && $this->canManageRecord($user, $department);
     }
 
     public function create(User $user): bool
     {
-        return $this->canManage($user);
+        return app(FeatureModuleService::class)->featureIsAvailable('organization-finance.departments', $user) && $this->canManage($user);
     }
 
     public function update(User $user, Department $department): bool
     {
-        return $this->canManageRecord($user, $department);
+        return app(FeatureModuleService::class)->featureIsAvailable('organization-finance.departments', $user) && $this->canManageRecord($user, $department);
     }
 
     public function delete(User $user, Department $department): bool
     {
-        return false;
+        return app(FeatureModuleService::class)->featureIsAvailable('organization-finance.departments', $user) && false;
     }
 
     public function deleteAny(User $user): bool
     {
-        return false;
+        return app(FeatureModuleService::class)->featureIsAvailable('organization-finance.departments', $user) && false;
     }
 
     public function deactivate(User $user, Department $department): bool
     {
-        return $department->is_active && $this->canManageRecord($user, $department);
+        return app(FeatureModuleService::class)->featureIsAvailable('organization-finance.departments', $user) && $department->is_active && $this->canManageRecord($user, $department);
     }
 
     private function canManage(User $user): bool

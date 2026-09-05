@@ -22,6 +22,7 @@ final class QuotationComparisonService
         private readonly DomainTransaction $transaction,
         private readonly PurchaseRequestTotalCalculator $totals,
         private readonly AttachmentService $attachments,
+        private readonly FeatureModuleService $featureModules,
     ) {}
 
     /**
@@ -439,6 +440,8 @@ final class QuotationComparisonService
     /** @return array{missing:list<int>, extra:list<int>, complete:bool} */
     public function validateLineCoverage(Quotation $quotation, ?PurchaseRequest $request = null): array
     {
+        $this->featureModules->assertEnabled(FeatureRegistry::FEATURE_QUOTES);
+
         $request ??= $quotation->purchaseRequest()->withoutGlobalScopes()->firstOrFail();
 
         return $this->coverage($quotation, $request->items()->pluck('id')->all());
@@ -577,6 +580,8 @@ final class QuotationComparisonService
             throw new AuthorizationException('An active authenticated procurement user is required.');
         }
 
+        $this->featureModules->assertEnabled(FeatureRegistry::FEATURE_QUOTES, $actor);
+
         return $actor;
     }
 
@@ -590,6 +595,8 @@ final class QuotationComparisonService
     private function authorizeView(PurchaseRequest $request, ?User $actor): void
     {
         $actor ??= auth()->user();
+        $this->featureModules->assertEnabled(FeatureRegistry::FEATURE_QUOTES, $actor);
+
         if ($actor instanceof User) {
             Gate::forUser($actor)->authorize('view', $request);
             $this->assertRequestScope($request, $actor);

@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Enums\PurchaseRequestStatus;
 use App\Models\Concerns\OfficeScoped;
 use App\Services\PurchaseRequestTotalCalculator;
+use App\Services\WorkflowStageService;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -57,10 +58,11 @@ class PurchaseRequest extends Model
         'branch_id',
         'department_id',
         'cost_center_id',
-        'departure_batch_id',
+        'umrah_batch_id',
         'requester_id',
         'category_id',
         'vendor_id',
+        'title',
         'notes',
         'reason',
         'required_date',
@@ -73,12 +75,23 @@ class PurchaseRequest extends Model
     {
         static::saving(function (self $model): void {
             $model->status ??= self::STATUS_DRAFT;
-            $status = PurchaseRequestStatus::tryFrom((string) $model->getAttribute('status'));
+            $rawStatus = (string) $model->getAttribute('status');
+            $status = PurchaseRequestStatus::tryFrom($rawStatus);
 
             if ($status === null) {
-                throw ValidationException::withMessages([
-                    'status' => 'The purchase request status is invalid.',
-                ]);
+                // Allow dynamic workflow stage keys (step_key) for flexible workflows
+                $isDynamic = false;
+                try {
+                    $isDynamic = app(WorkflowStageService::class)->isDynamicStage($rawStatus, $model);
+                } catch (\Throwable) {
+                    $isDynamic = (bool) preg_match('/^[a-z0-9_]+$/', $rawStatus);
+                }
+
+                if (! $isDynamic) {
+                    throw ValidationException::withMessages([
+                        'status' => 'The purchase request status is invalid.',
+                    ]);
+                }
             }
 
             if ($model->exists && $model->isDirty('pr_number')) {
@@ -119,7 +132,7 @@ class PurchaseRequest extends Model
             'branch_id' => 'integer',
             'department_id' => 'integer',
             'cost_center_id' => 'integer',
-            'departure_batch_id' => 'integer',
+            'umrah_batch_id' => 'integer',
             'requester_id' => 'integer',
             'vendor_id' => 'integer',
             'recommended_quotation_id' => 'integer',
@@ -152,9 +165,9 @@ class PurchaseRequest extends Model
         return $this->belongsTo(CostCenter::class, 'cost_center_id');
     }
 
-    public function departureBatch(): BelongsTo
+    public function umrahBatch(): BelongsTo
     {
-        return $this->belongsTo(DepartureBatch::class);
+        return $this->belongsTo(UmrahBatch::class);
     }
 
     public function requester(): BelongsTo

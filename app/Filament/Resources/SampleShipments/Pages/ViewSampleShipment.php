@@ -7,6 +7,8 @@ namespace App\Filament\Resources\SampleShipments\Pages;
 use App\Enums\SampleShipmentCondition;
 use App\Filament\Resources\SampleShipments\SampleShipmentResource;
 use App\Models\SampleShipment;
+use App\Services\FeatureModuleService;
+use App\Services\FeatureRegistry;
 use App\Services\SampleShipmentReceiptService;
 use App\Services\SampleShipmentService;
 use Filament\Actions\Action;
@@ -24,11 +26,16 @@ final class ViewSampleShipment extends ViewRecord
 
     protected function getHeaderActions(): array
     {
+        $featureAvailable = fn (): bool => app(FeatureModuleService::class)->featureIsAvailable(
+            FeatureRegistry::FEATURE_SAMPLE_SHIPMENTS,
+        );
+
         return [
-            EditAction::make(),
+            EditAction::make()->authorize($featureAvailable),
             Action::make('submit')
                 ->label('Submit')
                 ->visible(fn (SampleShipment $record): bool => $record->statusValue() === SampleShipment::STATUS_DRAFT)
+                ->authorize($featureAvailable)
                 ->action(function (SampleShipment $record): void {
                     app(SampleShipmentService::class)->submit($record, auth()->user());
                     Notification::make()->title('Shipment submitted')->success()->send();
@@ -36,12 +43,14 @@ final class ViewSampleShipment extends ViewRecord
             Action::make('review')
                 ->label('Procurement review')
                 ->visible(fn (SampleShipment $record): bool => $record->statusValue() === SampleShipment::STATUS_SUBMITTED)
+                ->authorize($featureAvailable)
                 ->action(function (SampleShipment $record): void {
                     app(SampleShipmentService::class)->review($record, auth()->user());
                     Notification::make()->title('Shipment moved to procurement review')->success()->send();
                 }),
             Action::make('approve')
                 ->visible(fn (SampleShipment $record): bool => $record->statusValue() === SampleShipment::STATUS_PROCUREMENT_REVIEW)
+                ->authorize($featureAvailable)
                 ->action(function (SampleShipment $record): void {
                     app(SampleShipmentService::class)->approve($record, auth()->user());
                     Notification::make()->title('Shipment approved')->success()->send();
@@ -49,6 +58,7 @@ final class ViewSampleShipment extends ViewRecord
             Action::make('mark_shipped')
                 ->label('Mark shipped')
                 ->visible(fn (SampleShipment $record): bool => $record->statusValue() === SampleShipment::STATUS_APPROVED)
+                ->authorize($featureAvailable)
                 ->action(function (SampleShipment $record): void {
                     app(SampleShipmentService::class)->ship($record, [], auth()->user());
                     Notification::make()->title('Shipment marked as shipped')->success()->send();
@@ -56,6 +66,7 @@ final class ViewSampleShipment extends ViewRecord
             Action::make('confirm_delivery')
                 ->label('Confirm delivery')
                 ->visible(fn (SampleShipment $record): bool => in_array($record->statusValue(), [SampleShipment::STATUS_SHIPPED, SampleShipment::STATUS_RECEIVED], true))
+                ->authorize($featureAvailable)
                 ->form([
                     TextInput::make('quantity')->numeric()->minValue(0.01)->required(),
                     Select::make('condition')
@@ -84,13 +95,16 @@ final class ViewSampleShipment extends ViewRecord
             Action::make('return')
                 ->label('Mark returned')
                 ->visible(fn (SampleShipment $record): bool => $record->statusValue() === SampleShipment::STATUS_CONFIRMED)
+                ->authorize($featureAvailable)
                 ->action(fn (SampleShipment $record): SampleShipment => app(SampleShipmentService::class)->transition($record, SampleShipment::STATUS_RETURNED, auth()->user())),
             Action::make('store')
                 ->label('Mark stored')
                 ->visible(fn (SampleShipment $record): bool => in_array($record->statusValue(), [SampleShipment::STATUS_CONFIRMED, SampleShipment::STATUS_RETURNED], true))
+                ->authorize($featureAvailable)
                 ->action(fn (SampleShipment $record): SampleShipment => app(SampleShipmentService::class)->transition($record, SampleShipment::STATUS_STORED, auth()->user())),
             Action::make('complete')
                 ->visible(fn (SampleShipment $record): bool => in_array($record->statusValue(), [SampleShipment::STATUS_STORED, SampleShipment::STATUS_RETURNED], true))
+                ->authorize($featureAvailable)
                 ->action(fn (SampleShipment $record): SampleShipment => app(SampleShipmentService::class)->transition($record, SampleShipment::STATUS_COMPLETE, auth()->user())),
         ];
     }

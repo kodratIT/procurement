@@ -6,6 +6,7 @@ namespace App\Policies;
 
 use App\Models\DistributionItem;
 use App\Models\User;
+use App\Services\FeatureModuleService;
 use App\Services\MultiOfficeAuthorization;
 use App\Support\ProcurementPermissions;
 
@@ -15,27 +16,27 @@ final class DistributionItemPolicy
 
     public function viewAny(User $user): bool
     {
-        return $this->authorization->allows($user, ProcurementPermissions::VIEW);
+        return app(FeatureModuleService::class)->featureIsAvailable('procurement.distributions', $user) && $this->authorization->allows($user, ProcurementPermissions::VIEW);
     }
 
     public function view(User $user, DistributionItem $item): bool
     {
-        return $this->allowsOnBatch($user, $item, ProcurementPermissions::VIEW);
+        return app(FeatureModuleService::class)->featureIsAvailable('procurement.distributions', $user) && $this->allowsOnBatch($user, $item, ProcurementPermissions::VIEW);
     }
 
     public function create(User $user): bool
     {
-        return $this->authorization->allows($user, ProcurementPermissions::CREATE);
+        return app(FeatureModuleService::class)->featureIsAvailable('procurement.distributions', $user) && $this->authorization->allows($user, ProcurementPermissions::CREATE);
     }
 
     public function update(User $user, DistributionItem $item): bool
     {
-        return false;
+        return app(FeatureModuleService::class)->featureIsAvailable('procurement.distributions', $user) && false;
     }
 
     public function delete(User $user, DistributionItem $item): bool
     {
-        return false;
+        return app(FeatureModuleService::class)->featureIsAvailable('procurement.distributions', $user) && false;
     }
 
     private function allowsOnBatch(User $user, DistributionItem $item, string $permission): bool

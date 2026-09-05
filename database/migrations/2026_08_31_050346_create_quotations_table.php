@@ -77,7 +77,7 @@ return new class extends Migration
             $table->unsignedInteger('recommendation_version')->nullable()->after('recommendation_reason');
             $table->timestamp('recommended_at')->nullable()->after('recommendation_version');
             $table->foreignId('recommended_by_id')->nullable()->after('recommended_at')->constrained('users')->nullOnDelete();
-            $table->index(['recommended_quotation_id', 'recommendation_version']);
+            $table->index(['recommended_quotation_id', 'recommendation_version'], 'purchase_requests_recommended_version_index');
         });
     }
 
@@ -86,7 +86,7 @@ return new class extends Migration
         Schema::table('purchase_requests', function (Blueprint $table): void {
             $table->dropForeign(['recommended_quotation_id']);
             $table->dropForeign(['recommended_by_id']);
-            $table->dropIndex(['recommended_quotation_id', 'recommendation_version']);
+            $table->dropIndex('purchase_requests_recommended_version_index');
             $table->dropColumn([
                 'recommended_quotation_id',
                 'recommendation_reason',

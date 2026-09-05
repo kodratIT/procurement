@@ -61,7 +61,7 @@ class QuotationForm
                             ->schema([
                                 Select::make('purchase_request_item_id')
                                     ->label('Item PR')
-                                    ->options(fn (Get $get): array => self::requestItemOptions($get->get('../../purchase_request_id') ?? $get->get('purchase_request_id')))
+                                    ->options(fn (Get $get): array => self::requestItemOptions($get->integer('../../purchase_request_id', isNullable: true) ?? $get->integer('purchase_request_id', isNullable: true)))
                                     ->searchable()
                                     ->required(),
                                 TextInput::make('quantity')->numeric()->minValue(0.01)->required(),

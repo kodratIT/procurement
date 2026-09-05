@@ -7,6 +7,7 @@ namespace App\Policies;
 use App\Models\ProcurementVariant;
 use App\Models\User;
 use App\Services\AuthorizationService;
+use App\Services\FeatureModuleService;
 use App\Support\ProcurementPermissions;
 
 final class ProcurementVariantPolicy
@@ -15,42 +16,42 @@ final class ProcurementVariantPolicy
 
     public function viewAny(User $user): bool
     {
-        return $this->canManage($user);
+        return app(FeatureModuleService::class)->featureIsAvailable('master-data.variants', $user) && $this->canManage($user);
     }
 
     public function view(User $user, ProcurementVariant $variant): bool
     {
-        return $this->authorization->canManageRecord($user, ProcurementPermissions::MANAGE_MASTER_DATA, $variant);
+        return app(FeatureModuleService::class)->featureIsAvailable('master-data.variants', $user) && $this->authorization->canManageRecord($user, ProcurementPermissions::MANAGE_MASTER_DATA, $variant);
     }
 
     public function create(User $user): bool
     {
-        return $this->canManage($user);
+        return app(FeatureModuleService::class)->featureIsAvailable('master-data.variants', $user) && $this->canManage($user);
     }
 
     public function update(User $user, ProcurementVariant $variant): bool
     {
-        return $this->view($user, $variant);
+        return app(FeatureModuleService::class)->featureIsAvailable('master-data.variants', $user) && $this->view($user, $variant);
     }
 
     public function delete(User $user, ProcurementVariant $variant): bool
     {
-        return $this->view($user, $variant) && ! $variant->purchaseRequestItems()->exists();
+        return app(FeatureModuleService::class)->featureIsAvailable('master-data.variants', $user) && $this->view($user, $variant) && ! $variant->purchaseRequestItems()->exists();
     }
 
     public function deleteAny(User $user): bool
     {
-        return false;
+        return app(FeatureModuleService::class)->featureIsAvailable('master-data.variants', $user) && false;
     }
 
     public function deactivate(User $user, ProcurementVariant $variant): bool
     {
-        return $variant->is_active && $this->view($user, $variant);
+        return app(FeatureModuleService::class)->featureIsAvailable('master-data.variants', $user) && $variant->is_active && $this->view($user, $variant);
     }
 
     public function activate(User $user, ProcurementVariant $variant): bool
     {
-        return ! $variant->is_active
+        return app(FeatureModuleService::class)->featureIsAvailable('master-data.variants', $user) && ! $variant->is_active
             && $variant->item()->availableForNewTransactions()->exists()
             && $this->view($user, $variant);
     }

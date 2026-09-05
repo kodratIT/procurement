@@ -7,6 +7,7 @@ namespace App\Policies;
 use App\Models\PurchaseRequest;
 use App\Models\Quotation;
 use App\Models\User;
+use App\Services\FeatureModuleService;
 use App\Services\MultiOfficeAuthorization;
 use App\Support\ProcurementPermissions;
 
@@ -16,22 +17,22 @@ final class QuotationPolicy
 
     public function viewAny(User $user): bool
     {
-        return $this->authorization->allows($user, ProcurementPermissions::VIEW);
+        return app(FeatureModuleService::class)->featureIsAvailable('procurement.quotes', $user) && $this->authorization->allows($user, ProcurementPermissions::UPDATE);
     }
 
     public function view(User $user, Quotation $quotation): bool
     {
-        return $this->requestIsAllowed($user, $this->requestFor($quotation), ProcurementPermissions::VIEW);
+        return app(FeatureModuleService::class)->featureIsAvailable('procurement.quotes', $user) && $this->requestIsAllowed($user, $this->requestFor($quotation), ProcurementPermissions::VIEW);
     }
 
     public function create(User $user): bool
     {
-        return $this->authorization->allows($user, ProcurementPermissions::CREATE);
+        return app(FeatureModuleService::class)->featureIsAvailable('procurement.quotes', $user) && $this->authorization->allows($user, ProcurementPermissions::CREATE);
     }
 
     public function update(User $user, Quotation $quotation): bool
     {
-        return in_array($quotation->status, [Quotation::STATUS_DRAFT, Quotation::STATUS_SUBMITTED], true)
+        return app(FeatureModuleService::class)->featureIsAvailable('procurement.quotes', $user) && in_array($quotation->status, [Quotation::STATUS_DRAFT, Quotation::STATUS_SUBMITTED], true)
             && $this->requestIsAllowed($user, $this->requestFor($quotation), ProcurementPermissions::UPDATE);
     }
 
@@ -39,20 +40,20 @@ final class QuotationPolicy
     {
         $request = $subject instanceof PurchaseRequest ? $subject : $this->requestFor($subject);
 
-        return $request instanceof PurchaseRequest
+        return app(FeatureModuleService::class)->featureIsAvailable('procurement.quotes', $user) && $request instanceof PurchaseRequest
             && in_array($request->status, [PurchaseRequest::STATUS_SUBMITTED, PurchaseRequest::STATUS_PROCUREMENT_REVIEW], true)
             && $this->requestIsAllowed($user, $request, ProcurementPermissions::UPDATE);
     }
 
     public function delete(User $user, Quotation $quotation): bool
     {
-        return $quotation->status === Quotation::STATUS_DRAFT
+        return app(FeatureModuleService::class)->featureIsAvailable('procurement.quotes', $user) && $quotation->status === Quotation::STATUS_DRAFT
             && $this->requestIsAllowed($user, $this->requestFor($quotation), ProcurementPermissions::UPDATE);
     }
 
     public function deleteAny(User $user): bool
     {
-        return false;
+        return app(FeatureModuleService::class)->featureIsAvailable('procurement.quotes', $user) && false;
     }
 
     private function requestFor(Quotation $quotation): ?PurchaseRequest

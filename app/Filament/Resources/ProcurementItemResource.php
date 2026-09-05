@@ -4,6 +4,9 @@ namespace App\Filament\Resources;
 
 use App\Filament\Exports\ProcurementItemExporter;
 use App\Models\ProcurementItem;
+use App\Models\User;
+use App\Services\AuthorizationService;
+use App\Services\FeatureModuleService;
 use Filament\Actions\Action;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
@@ -28,7 +31,11 @@ class ProcurementItemResource extends Resource
 
     protected static string|\BackedEnum|null $navigationIcon = Heroicon::OutlinedCube;
 
-    protected static ?string $navigationLabel = 'Item';
+    protected static ?string $navigationLabel = 'Items';
+
+    protected static string|\UnitEnum|null $navigationGroup = 'Master Data';
+
+    protected static ?int $navigationSort = 10;
 
     protected static ?string $modelLabel = 'item';
 
@@ -116,6 +123,16 @@ class ProcurementItemResource extends Resource
             ->toolbarActions([
                 ExportBulkAction::make()->exporter(ProcurementItemExporter::class),
             ]);
+    }
+
+    public static function canAccess(): bool
+    {
+        return app(FeatureModuleService::class)->allowsResource(self::class, fn (User $user): bool => app(AuthorizationService::class)->allows($user, 'ViewAny:ProcurementItem'));
+    }
+
+    public static function canViewAny(): bool
+    {
+        return app(FeatureModuleService::class)->allowsResource(self::class, fn (User $user): bool => app(AuthorizationService::class)->allows($user, 'ViewAny:ProcurementItem'));
     }
 
     public static function getPages(): array

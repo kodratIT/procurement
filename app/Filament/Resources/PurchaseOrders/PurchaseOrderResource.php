@@ -4,18 +4,14 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\PurchaseOrders;
 
-use App\Filament\Resources\PurchaseOrders\Pages\CreatePurchaseOrder;
-use App\Filament\Resources\PurchaseOrders\Pages\EditPurchaseOrder;
-use App\Filament\Resources\PurchaseOrders\Pages\ListPurchaseOrders;
-use App\Filament\Resources\PurchaseOrders\Pages\ViewPurchaseOrder;
 use App\Filament\Resources\PurchaseOrders\RelationManagers\GoodsReceiptsRelationManager;
-use App\Filament\Resources\PurchaseOrders\Schemas\PurchaseOrderForm;
 use App\Filament\Resources\PurchaseOrders\Tables\PurchaseOrdersTable;
 use App\Models\PurchaseOrder;
 use App\Models\User;
+use App\Services\AuthorizationService;
+use App\Services\FeatureModuleService;
 use App\Services\MultiOfficeAuthorization;
 use App\Services\ReceivingService;
-use App\Support\ProcurementPermissions;
 use BackedEnum;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Resources\Resource;
@@ -32,16 +28,15 @@ final class PurchaseOrderResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedDocumentText;
 
-    protected static ?string $navigationLabel = 'Purchase Order';
+    protected static ?string $navigationLabel = 'Purchase Orders';
+
+    protected static string|\UnitEnum|null $navigationGroup = 'Procurement';
+
+    protected static ?int $navigationSort = 30;
 
     protected static ?string $modelLabel = 'purchase order';
 
     protected static ?string $pluralModelLabel = 'purchase order';
-
-    public static function form(Schema $schema): Schema
-    {
-        return PurchaseOrderForm::configure($schema);
-    }
 
     public static function infolist(Schema $schema): Schema
     {
@@ -86,32 +81,21 @@ final class PurchaseOrderResource extends Resource
             return parent::getEloquentQuery()->whereKey(0);
         }
 
-        return app(MultiOfficeAuthorization::class)->scopeForUser(
+        return app(MultiOfficeAuthorization::class)->scopeForCurrentContext(
             parent::getEloquentQuery()
-                ->with(['purchaseRequest', 'vendor', 'quotation', 'items', 'attachments', 'revisions', 'goodsReceipts.items', 'goodsReceipts.receiver']),
+                ->with(['purchaseRequest', 'vendor', 'quotation', 'items', 'attachments', 'goodsReceipts.items', 'goodsReceipts.receiver']),
             $user,
-            ProcurementPermissions::VIEW,
+            'ViewAny:PurchaseOrder',
         );
+    }
+
+    public static function canAccess(): bool
+    {
+        return app(FeatureModuleService::class)->allowsResource(self::class, fn (User $user): bool => app(AuthorizationService::class)->allows($user, 'ViewAny:PurchaseOrder'));
     }
 
     public static function canViewAny(): bool
     {
-        $user = Auth::user();
-
-        return $user instanceof User
-            && $user->is_active
-            && $user->assignments()->currentlyActive()->get()->contains(
-                fn ($assignment): bool => $assignment->allows(ProcurementPermissions::VIEW),
-            );
-    }
-
-    public static function getPages(): array
-    {
-        return [
-            'index' => ListPurchaseOrders::route('/'),
-            'create' => CreatePurchaseOrder::route('/create'),
-            'view' => ViewPurchaseOrder::route('/{record}'),
-            'edit' => EditPurchaseOrder::route('/{record}/edit'),
-        ];
+        return app(FeatureModuleService::class)->allowsResource(self::class, fn (User $user): bool => app(AuthorizationService::class)->allows($user, 'ViewAny:PurchaseOrder'));
     }
 }

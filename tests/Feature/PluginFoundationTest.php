@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
-use App\Filament\Exports\DepartureBatchExporter;
 use App\Filament\Exports\ProcurementCategoryExporter;
 use App\Filament\Exports\ProcurementItemExporter;
 use App\Filament\Exports\ProcurementUnitExporter;
@@ -12,7 +11,7 @@ use App\Filament\Exports\ProcurementVariantExporter;
 use App\Filament\Exports\UserAssignmentExporter;
 use App\Filament\Exports\VendorExporter;
 use App\Models\Activity;
-use App\Models\DepartureBatch;
+use App\Models\Office;
 use App\Models\ProcurementCategory;
 use App\Models\ProcurementItem;
 use App\Models\ProcurementUnit;
@@ -63,6 +62,9 @@ class PluginFoundationTest extends TestCase
 
         $viewer = User::factory()->create(['email' => 'viewer@example.test']);
         $viewer->assignRole('Viewer');
+        $office = Office::factory()->create();
+        $viewerRole = Role::query()->where('name', 'Viewer')->firstOrFail();
+        UserAssignment::factory()->create(['user_id' => $viewer->id, 'office_id' => $office->id, 'role_id' => $viewerRole->id, 'is_primary' => true]);
 
         $outsider = User::factory()->create(['email' => 'outsider@example.test']);
 
@@ -86,9 +88,15 @@ class PluginFoundationTest extends TestCase
 
         $keuangan = User::factory()->create(['email' => 'keuangan@example.test']);
         $keuangan->assignRole('Keuangan');
+        $office = Office::factory()->create();
+        $keuanganRole = Role::query()->where('name', 'Keuangan')->firstOrFail();
+        UserAssignment::factory()->create(['user_id' => $keuangan->id, 'office_id' => $office->id, 'role_id' => $keuanganRole->id, 'is_primary' => true]);
 
         $viewer = User::factory()->create(['email' => 'viewer2@example.test']);
         $viewer->assignRole('Viewer');
+        $viewerRole = Role::query()->where('name', 'Viewer')->firstOrFail();
+        $viewerOffice = Office::factory()->create();
+        UserAssignment::factory()->create(['user_id' => $viewer->id, 'office_id' => $viewerOffice->id, 'role_id' => $viewerRole->id, 'is_primary' => true]);
 
         $this->assertTrue($keuangan->can('exportActivity', Activity::class));
         $this->assertFalse($viewer->can('exportActivity', Activity::class));
@@ -102,7 +110,6 @@ class PluginFoundationTest extends TestCase
             ProcurementUnitExporter::class => ProcurementUnit::class,
             ProcurementItemExporter::class => ProcurementItem::class,
             ProcurementVariantExporter::class => ProcurementVariant::class,
-            DepartureBatchExporter::class => DepartureBatch::class,
             UserAssignmentExporter::class => UserAssignment::class,
         ];
 
@@ -134,9 +141,15 @@ class PluginFoundationTest extends TestCase
 
         $admin = User::factory()->create(['email' => 'admin2@example.test']);
         $admin->assignRole('Admin');
+        $office = Office::factory()->create();
+        $adminRole = Role::query()->where('name', 'Admin')->firstOrFail();
+        UserAssignment::factory()->create(['user_id' => $admin->id, 'office_id' => $office->id, 'role_id' => $adminRole->id, 'is_primary' => true]);
 
         $viewer = User::factory()->create(['email' => 'viewer3@example.test']);
         $viewer->assignRole('Viewer');
+        $viewerRole = Role::query()->where('name', 'Viewer')->firstOrFail();
+        $viewerOffice = Office::factory()->create();
+        UserAssignment::factory()->create(['user_id' => $viewer->id, 'office_id' => $viewerOffice->id, 'role_id' => $viewerRole->id, 'is_primary' => true]);
 
         $role = Role::query()->where('name', 'Manager')->firstOrFail();
 

@@ -38,9 +38,32 @@ final class WorkflowVersioningTest extends TestCase
         $version->activate();
     }
 
-    public function test_used_version_and_all_nested_configuration_are_immutable(): void
+    public function test_name_and_required_flag_can_change_on_a_used_version(): void
     {
         $workflow = Workflow::create(['code' => 'immutable', 'name' => 'Immutable']);
+        $version = $workflow->versions()->create(['version_number' => 1, 'status' => WorkflowVersionStatus::Draft]);
+        $step = $version->steps()->create(['sequence' => 1, 'name' => 'Review', 'step_type' => WorkflowStepType::Review]);
+        $request = PurchaseRequest::factory()->create();
+        $version->approvalInstances()->create([
+            'purchase_request_id' => $request->id,
+            'workflow_reference' => $workflow->code,
+            'workflow_version' => 1,
+            'status' => 'pending',
+            'requester_id' => $request->requester_id,
+            'submitted_by_id' => $request->requester_id,
+            'office_id' => $request->office_id,
+            'submitted_at' => now(),
+        ]);
+
+        $step->update(['name' => 'Changed', 'is_required' => false]);
+
+        $this->assertSame('Changed', $step->fresh()->name);
+        $this->assertFalse($step->fresh()->is_required);
+    }
+
+    public function test_used_version_workflow_configuration_remains_immutable(): void
+    {
+        $workflow = Workflow::create(['code' => 'immutable-config', 'name' => 'Immutable Config']);
         $version = $workflow->versions()->create(['version_number' => 1, 'status' => WorkflowVersionStatus::Draft]);
         $step = $version->steps()->create(['sequence' => 1, 'name' => 'Review', 'step_type' => WorkflowStepType::Review]);
         $condition = $step->conditions()->create(['field_key' => 'priority', 'operator' => 'equals', 'value' => ['high']]);
@@ -57,9 +80,25 @@ final class WorkflowVersioningTest extends TestCase
             'submitted_at' => now(),
         ]);
 
-        $this->expectException(ValidationException::class);
-        $step->update(['name' => 'Changed']);
-        $condition->update(['field_key' => 'changed']);
-        $binding->update(['priority' => 2]);
+        try {
+            $condition->update(['field_key' => 'changed']);
+            $this->fail('Expected immutable workflow condition update to be rejected.');
+        } catch (ValidationException) {
+            $this->addToAssertionCount(1);
+        }
+
+        try {
+            $step->update(['sequence' => 2]);
+            $this->fail('Expected immutable workflow step update to be rejected.');
+        } catch (ValidationException) {
+            $this->addToAssertionCount(1);
+        }
+
+        try {
+            $binding->update(['priority' => 2]);
+            $this->fail('Expected immutable workflow binding update to be rejected.');
+        } catch (ValidationException) {
+            $this->addToAssertionCount(1);
+        }
     }
 }

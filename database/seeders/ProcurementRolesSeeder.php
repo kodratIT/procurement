@@ -54,6 +54,7 @@ class ProcurementRolesSeeder extends Seeder
             ProcurementPermissions::CORRECT_RECEIPT,
             ProcurementPermissions::MANAGE_USERS,
             ProcurementPermissions::MANAGE_ROLES,
+            ProcurementPermissions::MANAGE_FEATURES,
         ],
         'Auditor' => [
             ProcurementPermissions::VIEW,
@@ -75,5 +76,8 @@ class ProcurementRolesSeeder extends Seeder
                 collect($permissionNames)->map(fn (string $name) => $permissions[$name])->all(),
             );
         }
+
+        // Also seed Shield permissions so policies with Shield can() pass in tests.
+        $this->call(ShieldRoleSyncSeeder::class);
     }
 }

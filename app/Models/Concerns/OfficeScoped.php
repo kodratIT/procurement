@@ -37,7 +37,7 @@ trait OfficeScoped
                 $model->setAttribute('office_id', $officeId);
             }
 
-            app(MultiOfficeAuthorization::class)->authorizeMutation(
+            app(MultiOfficeAuthorization::class)->authorizeCreate(
                 Auth::user(),
                 $model,
                 ProcurementPermissions::CREATE,

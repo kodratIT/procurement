@@ -26,6 +26,8 @@ class KeycloakOidcCallbackTest extends TestCase
 
     private const POST_LOGOUT_REDIRECT_URI = 'https://procurement.example.test/';
 
+    private const NONCE = 'test-nonce-value';
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -76,7 +78,7 @@ class KeycloakOidcCallbackTest extends TestCase
         Http::fake();
 
         $state = 'valid-state';
-        $this->withSession(['keycloak.oauth' => ['state' => $state, 'verifier' => 'valid-verifier']]);
+        $this->withSession(['keycloak.oauth' => $this->oauthSession($state)]);
         $response = $this->get(route('keycloak.callback', ['state' => $state]));
 
         $response->assertSessionHasErrors('oauth');
@@ -94,7 +96,7 @@ class KeycloakOidcCallbackTest extends TestCase
             'is_active' => true,
         ]);
 
-        $idToken = $this->idToken(['iss' => self::ISSUER, 'aud' => self::CLIENT_ID]);
+        $idToken = $this->idToken(['iss' => self::ISSUER, 'aud' => self::CLIENT_ID, 'nonce' => self::NONCE, 'sub' => 'immutable-sub-1']);
         $state = 'valid-state';
         Http::fake([
             self::BASE_URL.'/realms/'.self::REALM.'/protocol/openid-connect/token' => Http::response([
@@ -108,7 +110,7 @@ class KeycloakOidcCallbackTest extends TestCase
             ]),
         ]);
 
-        $this->withSession(['keycloak.oauth' => ['state' => $state, 'verifier' => 'valid-verifier']]);
+        $this->withSession(['keycloak.oauth' => $this->oauthSession($state)]);
         $response = $this->get(route('keycloak.callback', ['state' => $state, 'code' => 'exchange-me']));
 
         $response->assertRedirect('/admin');
@@ -140,11 +142,11 @@ class KeycloakOidcCallbackTest extends TestCase
         Http::fake([
             self::BASE_URL.'/realms/'.self::REALM.'/protocol/openid-connect/token' => Http::response([
                 'access_token' => 'access-token',
-                'id_token' => $this->idToken(['iss' => 'https://evil.example.test/realms/umrah', 'aud' => self::CLIENT_ID]),
+                'id_token' => $this->idToken(['iss' => 'https://evil.example.test/realms/umrah', 'aud' => self::CLIENT_ID, 'nonce' => self::NONCE]),
             ]),
         ]);
 
-        $this->withSession(['keycloak.oauth' => ['state' => $state, 'verifier' => 'valid-verifier']]);
+        $this->withSession(['keycloak.oauth' => $this->oauthSession($state)]);
         $response = $this->get(route('keycloak.callback', ['state' => $state, 'code' => 'exchange-me']));
 
         $response->assertSessionHasErrors('oauth');
@@ -158,11 +160,11 @@ class KeycloakOidcCallbackTest extends TestCase
         Http::fake([
             self::BASE_URL.'/realms/'.self::REALM.'/protocol/openid-connect/token' => Http::response([
                 'access_token' => 'access-token',
-                'id_token' => $this->idToken(['iss' => self::ISSUER, 'aud' => 'another-client']),
+                'id_token' => $this->idToken(['iss' => self::ISSUER, 'aud' => 'another-client', 'nonce' => self::NONCE]),
             ]),
         ]);
 
-        $this->withSession(['keycloak.oauth' => ['state' => $state, 'verifier' => 'valid-verifier']]);
+        $this->withSession(['keycloak.oauth' => $this->oauthSession($state)]);
         $response = $this->get(route('keycloak.callback', ['state' => $state, 'code' => 'exchange-me']));
 
         $response->assertSessionHasErrors('oauth');
@@ -179,7 +181,7 @@ class KeycloakOidcCallbackTest extends TestCase
             ], 500),
         ]);
 
-        $this->withSession(['keycloak.oauth' => ['state' => $state, 'verifier' => 'valid-verifier']]);
+        $this->withSession(['keycloak.oauth' => $this->oauthSession($state)]);
         $response = $this->get(route('keycloak.callback', ['state' => $state, 'code' => 'exchange-me']));
 
         $response->assertSessionHasErrors('oauth');
@@ -196,6 +198,16 @@ class KeycloakOidcCallbackTest extends TestCase
         $response->assertRedirect();
         parse_str((string) parse_url((string) $response->headers->get('Location'), PHP_URL_QUERY), $query);
         $this->assertSame(self::POST_LOGOUT_REDIRECT_URI, $query['post_logout_redirect_uri']);
+    }
+
+    private function oauthSession(string $state): array
+    {
+        return [
+            'state' => $state,
+            'nonce' => self::NONCE,
+            'verifier' => 'valid-verifier',
+            'redirect_uri' => self::REDIRECT_URI,
+        ];
     }
 
     private function idToken(array $claims): string

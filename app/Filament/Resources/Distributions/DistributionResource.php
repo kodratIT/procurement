@@ -13,8 +13,9 @@ use App\Filament\Resources\Distributions\Schemas\DistributionInfolist;
 use App\Filament\Resources\Distributions\Tables\DistributionsTable;
 use App\Models\Distribution;
 use App\Models\User;
+use App\Services\AuthorizationService;
+use App\Services\FeatureModuleService;
 use App\Services\MultiOfficeAuthorization;
-use App\Support\ProcurementPermissions;
 use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
@@ -30,6 +31,10 @@ final class DistributionResource extends Resource
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedRectangleStack;
 
     protected static ?string $navigationLabel = 'Distributions';
+
+    protected static string|\UnitEnum|null $navigationGroup = 'Procurement';
+
+    protected static ?int $navigationSort = 50;
 
     protected static ?string $modelLabel = 'distribution';
 
@@ -71,23 +76,22 @@ final class DistributionResource extends Resource
                 'pilgrimAllocations.distributionItem.procurementItem',
             ])
             ->whereHas('batch', function (Builder $query) use ($user): void {
-                app(MultiOfficeAuthorization::class)->scopeForUser(
+                app(MultiOfficeAuthorization::class)->scopeForCurrentContext(
                     $query,
                     $user,
-                    ProcurementPermissions::VIEW,
+                    'ViewAny:Distribution',
                 );
             });
     }
 
+    public static function canAccess(): bool
+    {
+        return app(FeatureModuleService::class)->allowsResource(self::class, fn (User $user): bool => app(AuthorizationService::class)->allows($user, 'ViewAny:Distribution'));
+    }
+
     public static function canViewAny(): bool
     {
-        $user = Auth::user();
-
-        return $user instanceof User
-            && $user->is_active
-            && $user->assignments()->currentlyActive()->get()->contains(
-                fn ($assignment): bool => $assignment->allows(ProcurementPermissions::VIEW),
-            );
+        return app(FeatureModuleService::class)->allowsResource(self::class, fn (User $user): bool => app(AuthorizationService::class)->allows($user, 'ViewAny:Distribution'));
     }
 
     public static function getPages(): array

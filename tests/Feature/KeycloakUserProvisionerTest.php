@@ -2,7 +2,9 @@
 
 namespace Tests\Feature;
 
+use App\Models\Office;
 use App\Models\User;
+use App\Models\UserAssignment;
 use App\Services\Auth\KeycloakUserProvisioner;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Validation\ValidationException;
@@ -44,6 +46,34 @@ class KeycloakUserProvisionerTest extends TestCase
             'last_login_at' => '2026-08-30 12:01:00',
             'last_token_sync_at' => '2026-08-30 12:01:00',
         ]);
+    }
+
+    public function test_hybrid_mode_links_an_unclaimed_local_user_and_preserves_assignments(): void
+    {
+        config(['keycloak.provisioning_mode' => 'hybrid']);
+        $office = Office::factory()->create();
+        $localUser = User::factory()->create([
+            'keycloak_sub' => null,
+            'email' => 'purchasing@example.test',
+        ]);
+        $assignment = UserAssignment::factory()->create([
+            'user_id' => $localUser->getKey(),
+            'office_id' => $office->getKey(),
+            'valid_from' => now()->subDay(),
+        ]);
+
+        $linkedUser = app(KeycloakUserProvisioner::class)->provision([
+            'sub' => 'purchasing-keycloak-subject',
+            'name' => 'Purchasing User',
+            'email' => 'purchasing@example.test',
+        ]);
+
+        $this->assertTrue($linkedUser->is($localUser));
+        $this->assertSame('purchasing-keycloak-subject', $linkedUser->keycloak_sub);
+        $this->assertSame('Purchasing User', $linkedUser->name);
+        $this->assertModelExists($assignment->fresh());
+        $this->assertSame($localUser->getKey(), $assignment->fresh()->user_id);
+        $this->assertSame(1, User::query()->count());
     }
 
     public function test_missing_subject_is_rejected_without_creating_a_local_user(): void

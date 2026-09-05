@@ -6,11 +6,11 @@ namespace App\Services;
 
 use App\Enums\ProcurementFieldType;
 use App\Models\CostCenter;
-use App\Models\DepartureBatch;
 use App\Models\ProcurementCategory;
 use App\Models\ProcurementField;
 use App\Models\PurchaseRequest;
 use App\Models\PurchaseRequestFieldValue;
+use App\Models\UmrahBatch;
 use App\Models\User;
 use App\Support\DomainTransaction;
 use App\Support\ProcurementPermissions;
@@ -28,6 +28,7 @@ final class ProcurementRequestDraftSaver
         private readonly AttachmentService $attachments,
         private readonly DomainTransaction $transaction,
         private readonly PurchaseRequestTimeline $timeline,
+        private readonly FeatureModuleService $featureModules,
     ) {}
 
     public function save(
@@ -41,6 +42,8 @@ final class ProcurementRequestDraftSaver
         if (! $user instanceof User || ! $user->is_active) {
             throw new AuthorizationException('An active authenticated user is required.');
         }
+
+        $this->featureModules->assertEnabled(FeatureRegistry::FEATURE_REQUESTS, $user);
 
         $assignment = $this->context->assignment();
         if ($assignment === null) {
@@ -353,12 +356,12 @@ final class ProcurementRequestDraftSaver
             throw ValidationException::withMessages(['category_id' => 'The selected category is inactive or unavailable.']);
         }
 
-        $batchId = $this->nullableInteger($data['departure_batch_id'] ?? $data['batch_id'] ?? $request?->departure_batch_id);
-        if ($batchId !== null && ! DepartureBatch::query()
+        $batchId = $this->nullableInteger($data['umrah_batch_id'] ?? $data['batch_id'] ?? $request?->umrah_batch_id);
+        if ($batchId !== null && ! UmrahBatch::query()
             ->whereKey($batchId)
             ->where('is_active', true)
             ->exists()) {
-            throw ValidationException::withMessages(['departure_batch_id' => 'The selected batch is inactive or unavailable.']);
+            throw ValidationException::withMessages(['umrah_batch_id' => 'The selected batch is inactive or unavailable.']);
         }
 
         $priority = (string) ($data['priority'] ?? $request?->priority ?? 'normal');
@@ -368,7 +371,7 @@ final class ProcurementRequestDraftSaver
             'branch_id' => $branchId,
             'department_id' => $departmentId,
             'cost_center_id' => $costCenterId,
-            'departure_batch_id' => $this->nullableInteger($data['departure_batch_id'] ?? $data['batch_id'] ?? $request?->departure_batch_id),
+            'umrah_batch_id' => $this->nullableInteger($data['umrah_batch_id'] ?? $data['batch_id'] ?? $request?->umrah_batch_id),
             'requester_id' => $request?->requester_id ?? $user->getKey(),
             'category_id' => $this->nullableInteger($data['category_id'] ?? $request?->category_id),
             'title' => $data['title'] ?? $request?->title,

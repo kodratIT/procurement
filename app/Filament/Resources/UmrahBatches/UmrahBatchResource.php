@@ -9,7 +9,8 @@ use App\Filament\Resources\UmrahBatches\Pages\ManageUmrahBatches;
 use App\Models\UmrahBatch;
 use App\Models\User;
 use App\Services\AccessContextService;
-use App\Support\ProcurementPermissions;
+use App\Services\AuthorizationService;
+use App\Services\FeatureModuleService;
 use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Actions\EditAction;
@@ -37,11 +38,25 @@ class UmrahBatchResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedRectangleStack;
 
-    protected static ?string $navigationLabel = 'Batch Umrah';
+    protected static ?string $navigationLabel = 'Umrah Batches';
+
+    protected static string|\UnitEnum|null $navigationGroup = 'Umrah Operations';
+
+    protected static ?int $navigationSort = 20;
 
     protected static ?string $modelLabel = 'batch umrah';
 
     protected static ?string $pluralModelLabel = 'batch umrah';
+
+    public static function canAccess(): bool
+    {
+        return app(FeatureModuleService::class)->allowsResource(self::class, fn (User $user): bool => app(AuthorizationService::class)->allows($user, 'ViewAny:UmrahBatch'));
+    }
+
+    public static function canViewAny(): bool
+    {
+        return app(FeatureModuleService::class)->allowsResource(self::class, fn (User $user): bool => app(AuthorizationService::class)->allows($user, 'ViewAny:UmrahBatch'));
+    }
 
     public static function getEloquentQuery(): Builder
     {
@@ -49,7 +64,7 @@ class UmrahBatchResource extends Resource
         $user = Auth::user();
 
         return $user instanceof User
-            ? $query->acrossContexts(ProcurementPermissions::VIEW)
+            ? $query->acrossContexts('ViewAny:UmrahBatch')
             : $query->whereKey(0);
     }
 

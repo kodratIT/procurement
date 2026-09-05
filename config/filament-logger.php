@@ -370,7 +370,7 @@ return [
 
     'activity_resource' => ActivityResource::class,
     'scoped_to_tenant' => false,
-    'navigation_sort' => null,
+    'navigation_sort' => 40,
 
     'resources' => [
         'enabled' => true,

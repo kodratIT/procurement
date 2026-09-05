@@ -17,8 +17,8 @@ return new class extends Migration
             $table->decimal('quantity', 14, 2);
             $table->timestamps();
 
-            $table->unique(['goods_receipt_id', 'purchase_order_item_id']);
-            $table->index(['purchase_order_item_id', 'goods_receipt_id']);
+            $table->unique(['goods_receipt_id', 'purchase_order_item_id'], 'goods_receipt_item_unique');
+            $table->index(['purchase_order_item_id', 'goods_receipt_id'], 'goods_receipt_item_order_index');
         });
     }
 

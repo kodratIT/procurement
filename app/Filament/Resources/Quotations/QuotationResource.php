@@ -12,6 +12,8 @@ use App\Filament\Resources\Quotations\Tables\QuotationsTable;
 use App\Models\PurchaseRequest;
 use App\Models\Quotation;
 use App\Models\User;
+use App\Services\AuthorizationService;
+use App\Services\FeatureModuleService;
 use App\Support\ProcurementPermissions;
 use BackedEnum;
 use Filament\Resources\Resource;
@@ -27,7 +29,11 @@ final class QuotationResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedDocumentMagnifyingGlass;
 
-    protected static ?string $navigationLabel = 'Quotation';
+    protected static ?string $navigationLabel = 'Quotes';
+
+    protected static string|\UnitEnum|null $navigationGroup = 'Procurement';
+
+    protected static ?int $navigationSort = 20;
 
     protected static ?string $modelLabel = 'quotation';
 
@@ -52,7 +58,7 @@ final class QuotationResource extends Resource
         }
 
         $requestIds = PurchaseRequest::query()
-            ->acrossOffices(ProcurementPermissions::UPDATE)
+            ->acrossOffices('ViewAny:Quotation')
             ->select('id');
 
         return parent::getEloquentQuery()
@@ -60,15 +66,14 @@ final class QuotationResource extends Resource
             ->with(['purchaseRequest', 'vendor', 'items', 'attachments']);
     }
 
+    public static function canAccess(): bool
+    {
+        return app(FeatureModuleService::class)->allowsResource(self::class, fn (User $user): bool => app(AuthorizationService::class)->allows($user, ProcurementPermissions::UPDATE));
+    }
+
     public static function canViewAny(): bool
     {
-        $user = Auth::user();
-
-        return $user instanceof User
-            && $user->is_active
-            && $user->assignments()->currentlyActive()->get()->contains(
-                fn ($assignment): bool => $assignment->allows(ProcurementPermissions::UPDATE),
-            );
+        return app(FeatureModuleService::class)->allowsResource(self::class, fn (User $user): bool => app(AuthorizationService::class)->allows($user, ProcurementPermissions::UPDATE));
     }
 
     public static function getPages(): array

@@ -6,9 +6,7 @@ namespace App\Filament\Resources\PurchaseOrders\Tables;
 
 use App\Enums\PurchaseOrderStatus;
 use App\Models\PurchaseOrder;
-use App\Services\PurchaseOrderRevisionService;
 use App\Services\ReceivingService;
-use Filament\Actions\Action;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
@@ -39,16 +37,6 @@ final class PurchaseOrdersTable
             ->recordActions([
                 ViewAction::make(),
                 EditAction::make()->visible(fn (PurchaseOrder $record): bool => $record->isEditableBeforeApproval()),
-                Action::make('approve')
-                    ->label('Approve')
-                    ->requiresConfirmation()
-                    ->visible(fn (PurchaseOrder $record): bool => $record->isEditableBeforeApproval())
-                    ->authorize('approveRevision')
-                    ->action(fn (PurchaseOrder $record): PurchaseOrder => app(PurchaseOrderRevisionService::class)->approve($record, auth()->user())),
-                Action::make('print')
-                    ->label('Print')
-                    ->url(fn (PurchaseOrder $record): string => route('purchase-orders.print', $record))
-                    ->openUrlInNewTab(),
                 DeleteAction::make()->visible(fn (PurchaseOrder $record): bool => $record->status === PurchaseOrderStatus::Draft),
             ]);
     }

@@ -17,10 +17,14 @@ use Illuminate\Validation\ValidationException;
 
 final class BudgetReservationService implements BudgetCheck
 {
-    public function __construct(private readonly DomainTransaction $transaction) {}
+    public function __construct(
+        private readonly DomainTransaction $transaction,
+        private readonly FeatureModuleService $featureModules,
+    ) {}
 
     public function check(PurchaseRequest $purchaseRequest): bool
     {
+        $this->assertFeature();
         $budget = $this->resolveBudget($purchaseRequest);
 
         if (! $budget instanceof Budget || $this->moneyCompare((string) $purchaseRequest->total_amount, '0.00') < 0) {
@@ -38,6 +42,7 @@ final class BudgetReservationService implements BudgetCheck
         ?int $year = null,
         ?User $actor = null,
     ): BudgetReservation {
+        $this->assertFeature($actor);
         if ($purchaseRequest->status !== PurchaseRequest::STATUS_APPROVED) {
             throw ValidationException::withMessages([
                 'purchase_request' => 'Only an approved purchase request can be reserved.',
@@ -123,6 +128,7 @@ final class BudgetReservationService implements BudgetCheck
         string $reason,
         ?User $actor = null,
     ): BudgetReservation {
+        $this->assertFeature($actor);
         $this->assertReason($reason);
         $reservationId = $this->reservationId($reservation);
 
@@ -165,6 +171,7 @@ final class BudgetReservationService implements BudgetCheck
         string $reason,
         ?User $actor = null,
     ): BudgetReservation {
+        $this->assertFeature($actor);
         $this->assertReason($reason);
         $reservationId = $this->reservationId($reservation);
 
@@ -201,6 +208,7 @@ final class BudgetReservationService implements BudgetCheck
         string $reason,
         ?User $actor = null,
     ): BudgetReservation {
+        $this->assertFeature($actor);
         $this->assertReason($reason);
         $amount = $this->money($amount);
         if ($this->moneyCompare($amount, '0.00') <= 0) {
@@ -232,6 +240,8 @@ final class BudgetReservationService implements BudgetCheck
         BudgetReservation $reservation,
         ?User $actor = null,
     ): BudgetReservation {
+        $this->assertFeature($actor);
+
         return $this->transaction->run(
             'commit budget reservation',
             function () use ($reservation, $actor): BudgetReservation {
@@ -257,6 +267,7 @@ final class BudgetReservationService implements BudgetCheck
 
     public function availableAmount(Budget|int $budget): string
     {
+        $this->assertFeature();
         $budget = $budget instanceof Budget
             ? $budget
             : Budget::query()->findOrFail($budget);
@@ -279,6 +290,7 @@ final class BudgetReservationService implements BudgetCheck
     /** @return array{allocation: string, reserved: string, committed: string, available: string} */
     public function totals(Budget|int $budget): array
     {
+        $this->assertFeature();
         $budget = $budget instanceof Budget
             ? $budget
             : Budget::query()->findOrFail($budget);
@@ -359,6 +371,11 @@ final class BudgetReservationService implements BudgetCheck
                 $this->subtract($requested, $available),
             ),
         ]);
+    }
+
+    private function assertFeature(?User $actor = null): void
+    {
+        $this->featureModules->assertEnabled(FeatureRegistry::FEATURE_BUDGETS, $actor);
     }
 
     private function authorizeBudget(Budget $budget, ?User $actor): void

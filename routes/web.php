@@ -32,6 +32,8 @@ Route::middleware('guest')->group(function () {
     Route::get('/auth/keycloak/callback', [KeycloakController::class, 'callback'])->name('keycloak.callback');
 });
 Route::post('/logout', [KeycloakController::class, 'logout'])->middleware('auth')->name('logout');
+Route::post('/admin/logout', [KeycloakController::class, 'logout'])->middleware('auth')->name('filament.admin.auth.logout');
+Route::get('/admin/logout', [KeycloakController::class, 'logout'])->middleware('auth');
 Route::post('/office/switch', [OfficeContextController::class, 'switch'])
     ->middleware(['auth', 'active.office'])->name('office.switch');
 Route::post('/office/confirm-mutation', [OfficeContextController::class, 'confirmMutation'])

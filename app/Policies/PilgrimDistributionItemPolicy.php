@@ -6,6 +6,7 @@ namespace App\Policies;
 
 use App\Models\PilgrimDistributionItem;
 use App\Models\User;
+use App\Services\FeatureModuleService;
 use App\Services\MultiOfficeAuthorization;
 use App\Support\ProcurementPermissions;
 
@@ -15,32 +16,32 @@ final class PilgrimDistributionItemPolicy
 
     public function viewAny(User $user): bool
     {
-        return $this->authorization->allows($user, ProcurementPermissions::VIEW);
+        return app(FeatureModuleService::class)->featureIsAvailable('procurement.distributions', $user) && $this->authorization->allows($user, ProcurementPermissions::VIEW);
     }
 
     public function view(User $user, PilgrimDistributionItem $allocation): bool
     {
-        return $this->allowsOnBatch($user, $allocation, ProcurementPermissions::VIEW);
+        return app(FeatureModuleService::class)->featureIsAvailable('procurement.distributions', $user) && $this->allowsOnBatch($user, $allocation, ProcurementPermissions::VIEW);
     }
 
     public function create(User $user): bool
     {
-        return $this->authorization->allows($user, ProcurementPermissions::RECEIVE);
+        return app(FeatureModuleService::class)->featureIsAvailable('procurement.distributions', $user) && $this->authorization->allows($user, ProcurementPermissions::RECEIVE);
     }
 
     public function update(User $user, PilgrimDistributionItem $allocation): bool
     {
-        return $this->allowsOnBatch($user, $allocation, ProcurementPermissions::RECEIVE);
+        return app(FeatureModuleService::class)->featureIsAvailable('procurement.distributions', $user) && $this->allowsOnBatch($user, $allocation, ProcurementPermissions::RECEIVE);
     }
 
     public function attachEvidence(User $user, PilgrimDistributionItem $allocation): bool
     {
-        return $this->update($user, $allocation);
+        return app(FeatureModuleService::class)->featureIsAvailable('procurement.distributions', $user) && $this->update($user, $allocation);
     }
 
     public function delete(User $user, PilgrimDistributionItem $allocation): bool
     {
-        return false;
+        return app(FeatureModuleService::class)->featureIsAvailable('procurement.distributions', $user) && false;
     }
 
     private function allowsOnBatch(User $user, PilgrimDistributionItem $allocation, string $permission): bool

@@ -23,6 +23,7 @@ final class InvoicePaymentService
         private readonly MultiOfficeAuthorization $authorization,
         private readonly AttachmentService $attachments,
         private readonly AccessContextService $context,
+        private readonly FeatureModuleService $featureModules,
     ) {}
 
     /**
@@ -250,6 +251,8 @@ final class InvoicePaymentService
         if (! $actor instanceof User || ! $actor->is_active || ! $actor->is(auth()->user())) {
             throw new AuthorizationException('An active authenticated finance user is required.');
         }
+
+        $this->featureModules->assertEnabled(FeatureRegistry::FEATURE_INVOICES, $actor);
 
         return $actor;
     }

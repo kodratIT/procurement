@@ -5,43 +5,44 @@ namespace App\Policies;
 use App\Models\Branch;
 use App\Models\User;
 use App\Services\AuthorizationService;
+use App\Services\FeatureModuleService;
 use App\Support\ProcurementPermissions;
 
 class BranchPolicy
 {
     public function viewAny(User $user): bool
     {
-        return $this->canManage($user);
+        return app(FeatureModuleService::class)->featureIsAvailable('organization-finance.branches', $user) && $this->canManage($user);
     }
 
     public function view(User $user, Branch $branch): bool
     {
-        return $this->canManageRecord($user, $branch);
+        return app(FeatureModuleService::class)->featureIsAvailable('organization-finance.branches', $user) && $this->canManageRecord($user, $branch);
     }
 
     public function create(User $user): bool
     {
-        return $this->canManage($user);
+        return app(FeatureModuleService::class)->featureIsAvailable('organization-finance.branches', $user) && $this->canManage($user);
     }
 
     public function update(User $user, Branch $branch): bool
     {
-        return $this->canManageRecord($user, $branch);
+        return app(FeatureModuleService::class)->featureIsAvailable('organization-finance.branches', $user) && $this->canManageRecord($user, $branch);
     }
 
     public function delete(User $user, Branch $branch): bool
     {
-        return false;
+        return app(FeatureModuleService::class)->featureIsAvailable('organization-finance.branches', $user) && false;
     }
 
     public function deleteAny(User $user): bool
     {
-        return false;
+        return app(FeatureModuleService::class)->featureIsAvailable('organization-finance.branches', $user) && false;
     }
 
     public function deactivate(User $user, Branch $branch): bool
     {
-        return $branch->is_active && $this->canManageRecord($user, $branch);
+        return app(FeatureModuleService::class)->featureIsAvailable('organization-finance.branches', $user) && $branch->is_active && $this->canManageRecord($user, $branch);
     }
 
     private function canManage(User $user): bool

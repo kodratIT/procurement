@@ -4,18 +4,21 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources;
 
-use App\Enums\WorkflowVersionStatus;
+use App\Filament\Resources\WorkflowVersionResource\Pages\CreateWorkflowVersion;
+use App\Filament\Resources\WorkflowVersionResource\Pages\EditWorkflowVersion;
+use App\Filament\Resources\WorkflowVersionResource\Pages\ListWorkflowVersions;
+use App\Filament\Resources\WorkflowVersionResource\Pages\ViewWorkflowVersion;
 use App\Filament\Resources\WorkflowVersionResource\RelationManagers\StepsRelationManager;
+use App\Filament\Resources\WorkflowVersionResource\Schemas\WorkflowVersionForm;
+use App\Filament\Resources\WorkflowVersionResource\Schemas\WorkflowVersionInfolist;
+use App\Filament\Resources\WorkflowVersionResource\Tables\WorkflowVersionsTable;
+use App\Models\User;
 use App\Models\WorkflowVersion;
-use Filament\Actions\DeleteAction;
-use Filament\Actions\EditAction;
-use Filament\Forms\Components\DateTimePicker;
-use Filament\Forms\Components\Select;
-use Filament\Forms\Components\TextInput;
+use App\Services\AuthorizationService;
+use App\Services\FeatureModuleService;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
-use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 
 class WorkflowVersionResource extends Resource
@@ -24,33 +27,27 @@ class WorkflowVersionResource extends Resource
 
     protected static string|\BackedEnum|null $navigationIcon = Heroicon::OutlinedQueueList;
 
-    protected static ?string $navigationLabel = 'Versi Workflow';
+    protected static ?string $navigationLabel = 'Workflow Versions';
+
+    protected static string|\UnitEnum|null $navigationGroup = 'Approval';
+
+    protected static ?int $navigationSort = 20;
 
     protected static ?string $modelLabel = 'versi workflow';
 
     public static function form(Schema $schema): Schema
     {
-        return $schema->components([
-            Select::make('workflow_id')->relationship('workflow', 'name')->required(),
-            TextInput::make('version_number')->numeric()->required()->minValue(1),
-            Select::make('status')->options(WorkflowVersionStatus::options())->enum(WorkflowVersionStatus::class)->required()->default(WorkflowVersionStatus::Draft->value),
-            DateTimePicker::make('effective_from'),
-            DateTimePicker::make('effective_until')->after('effective_from'),
-        ]);
+        return WorkflowVersionForm::configure($schema);
+    }
+
+    public static function infolist(Schema $schema): Schema
+    {
+        return WorkflowVersionInfolist::configure($schema);
     }
 
     public static function table(Table $table): Table
     {
-        return $table->columns([
-            TextColumn::make('workflow.name')->label('Workflow')->searchable()->sortable(),
-            TextColumn::make('version_number')->label('Versi')->sortable(),
-            TextColumn::make('status')->badge(),
-            TextColumn::make('steps_count')->counts('steps')->label('Tahap'),
-            TextColumn::make('effective_from')->dateTime(),
-        ])->recordActions([
-            EditAction::make(),
-            DeleteAction::make()->visible(fn (WorkflowVersion $record): bool => ! $record->isUsed()),
-        ]);
+        return WorkflowVersionsTable::configure($table);
     }
 
     public static function getRelations(): array
@@ -58,10 +55,23 @@ class WorkflowVersionResource extends Resource
         return [StepsRelationManager::class];
     }
 
+    public static function canAccess(): bool
+    {
+        return app(FeatureModuleService::class)->allowsResource(self::class, fn (User $user): bool => app(AuthorizationService::class)->allows($user, 'ViewAny:WorkflowVersion'));
+    }
+
+    public static function canViewAny(): bool
+    {
+        return app(FeatureModuleService::class)->allowsResource(self::class, fn (User $user): bool => app(AuthorizationService::class)->allows($user, 'ViewAny:WorkflowVersion'));
+    }
+
     public static function getPages(): array
     {
         return [
-            'index' => Pages\ManageWorkflowVersions::route('/'),
+            'index' => ListWorkflowVersions::route('/'),
+            'create' => CreateWorkflowVersion::route('/create'),
+            'view' => ViewWorkflowVersion::route('/{record}'),
+            'edit' => EditWorkflowVersion::route('/{record}/edit'),
         ];
     }
 }

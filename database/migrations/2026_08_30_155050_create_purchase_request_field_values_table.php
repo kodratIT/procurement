@@ -20,8 +20,8 @@ return new class extends Migration
             $table->json('value')->nullable();
             $table->timestamps();
 
-            $table->unique(['purchase_request_id', 'field_id']);
-            $table->index(['purchase_request_id', 'field_key']);
+            $table->unique(['purchase_request_id', 'field_id'], 'pr_field_value_unique');
+            $table->index(['purchase_request_id', 'field_key'], 'pr_field_value_key_index');
             $table->index(['field_id', 'field_version']);
         });
     }

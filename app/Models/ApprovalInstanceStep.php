@@ -16,6 +16,7 @@ class ApprovalInstanceStep extends Model
 
     protected $fillable = [
         'approval_instance_id',
+        'workflow_step_id',
         'step_order',
         'step_key',
         'label',
@@ -92,6 +93,7 @@ class ApprovalInstanceStep extends Model
     {
         return [
             'approval_instance_id' => 'integer',
+            'workflow_step_id' => 'integer',
             'step_order' => 'integer',
             'approver_id' => 'integer',
             'original_approver_id' => 'integer',
@@ -118,6 +120,11 @@ class ApprovalInstanceStep extends Model
     public function approvalInstance(): BelongsTo
     {
         return $this->belongsTo(ApprovalInstance::class);
+    }
+
+    public function workflowStep(): BelongsTo
+    {
+        return $this->belongsTo(WorkflowStep::class);
     }
 
     public function approver(): BelongsTo

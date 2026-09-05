@@ -30,6 +30,7 @@ final class DistributionService
         private readonly DomainTransaction $transaction,
         private readonly MultiOfficeAuthorization $authorization,
         private readonly AttachmentService $attachments,
+        private readonly FeatureModuleService $featureModules,
     ) {}
 
     /** @param array<string, mixed> $data */
@@ -421,6 +422,8 @@ final class DistributionService
     /** @return array<int, string> */
     public function availability(UmrahBatch|int|null $batch = null): array
     {
+        $this->featureModules->assertEnabled(FeatureRegistry::FEATURE_DISTRIBUTIONS);
+
         $officeId = $batch === null ? null : (int) ($batch instanceof UmrahBatch ? $batch->office_id : UmrahBatch::query()->findOrFail($this->positiveInteger($batch, 'umrah_batch_id'))->office_id);
         $ids = ProcurementItem::query()->pluck('id')->map(static fn (mixed $id): int => (int) $id)->all();
 
@@ -429,6 +432,8 @@ final class DistributionService
 
     public function availableQuantity(ProcurementItem|int $item, UmrahBatch|int|null $batch = null): string
     {
+        $this->featureModules->assertEnabled(FeatureRegistry::FEATURE_DISTRIBUTIONS);
+
         $id = $item instanceof ProcurementItem ? (int) $item->getKey() : $this->positiveInteger($item, 'procurement_item_id');
         $officeId = $batch === null ? null : (int) ($batch instanceof UmrahBatch ? $batch->office_id : UmrahBatch::query()->findOrFail($this->positiveInteger($batch, 'umrah_batch_id'))->office_id);
 
@@ -452,6 +457,8 @@ final class DistributionService
     /** @return array<int, string> */
     public function distributedQuantities(UmrahBatch|int|null $batch = null): array
     {
+        $this->featureModules->assertEnabled(FeatureRegistry::FEATURE_DISTRIBUTIONS);
+
         $query = DistributionItem::query()
             ->join('distributions', 'distributions.id', '=', 'distribution_items.distribution_id')
             ->whereIn('distributions.status', [Distribution::STATUS_RECORDED, Distribution::STATUS_COMPLETED])
@@ -474,6 +481,7 @@ final class DistributionService
     /** @return array<int, string> */
     public function totals(Distribution|UmrahBatch|int $subject): array
     {
+        $this->featureModules->assertEnabled(FeatureRegistry::FEATURE_DISTRIBUTIONS);
         if ($subject instanceof Distribution) {
             $totals = [];
             foreach ($subject->items as $line) {
@@ -633,6 +641,8 @@ final class DistributionService
         if (! $actor instanceof User || ! $actor->is_active || ! $actor->is(auth()->user())) {
             throw new AuthorizationException('An active authenticated distribution actor is required.');
         }
+
+        $this->featureModules->assertEnabled(FeatureRegistry::FEATURE_DISTRIBUTIONS, $actor);
 
         return $actor;
     }

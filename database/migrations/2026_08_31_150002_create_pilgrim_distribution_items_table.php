@@ -18,7 +18,7 @@ return new class extends Migration
             $table->string('status', 30)->default('pending');
             $table->timestamps();
 
-            $table->unique(['distribution_item_id', 'pilgrim_id']);
+            $table->unique(['distribution_item_id', 'pilgrim_id'], 'pilgrim_distribution_item_unique');
             $table->index(['pilgrim_id', 'status']);
         });
     }

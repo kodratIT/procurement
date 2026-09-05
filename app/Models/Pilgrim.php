@@ -62,6 +62,10 @@ class Pilgrim extends Model
                 throw new InvalidArgumentException('A valid Umrah batch is required.');
             }
 
+            if ($pilgrim->office_id === null) {
+                $pilgrim->office_id = $batch->office_id;
+            }
+
             if ((int) $pilgrim->office_id !== (int) $batch->office_id) {
                 throw new InvalidArgumentException('The pilgrim office must match the batch office.');
             }

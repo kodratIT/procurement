@@ -7,6 +7,9 @@ namespace App\Filament\Resources\ProcurementFields;
 use App\Enums\ProcurementFieldType;
 use App\Filament\Resources\ProcurementFields\Pages\ManageProcurementFields;
 use App\Models\ProcurementField;
+use App\Models\User;
+use App\Services\AuthorizationService;
+use App\Services\FeatureModuleService;
 use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
@@ -34,7 +37,11 @@ class ProcurementFieldResource extends Resource
 
     protected static string|\BackedEnum|null $navigationIcon = Heroicon::OutlinedRectangleStack;
 
-    protected static ?string $navigationLabel = 'Field dinamis';
+    protected static ?string $navigationLabel = 'Custom Fields';
+
+    protected static string|\UnitEnum|null $navigationGroup = 'Master Data';
+
+    protected static ?int $navigationSort = 50;
 
     protected static ?string $modelLabel = 'field dinamis';
 
@@ -199,6 +206,16 @@ class ProcurementFieldResource extends Resource
                     DeleteBulkAction::make(),
                 ]),
             ]);
+    }
+
+    public static function canAccess(): bool
+    {
+        return app(FeatureModuleService::class)->allowsResource(self::class, fn (User $user): bool => app(AuthorizationService::class)->allows($user, 'ViewAny:ProcurementField'));
+    }
+
+    public static function canViewAny(): bool
+    {
+        return app(FeatureModuleService::class)->allowsResource(self::class, fn (User $user): bool => app(AuthorizationService::class)->allows($user, 'ViewAny:ProcurementField'));
     }
 
     public static function getPages(): array

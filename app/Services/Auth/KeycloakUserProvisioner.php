@@ -14,8 +14,9 @@ class KeycloakUserProvisioner
     /**
      * Provision a local user from an OIDC userinfo claim set.
      *
-     * The Keycloak subject is the only identity key. Email is an attribute,
-     * not an account lookup key, and may not be claimed by another subject.
+     * The Keycloak subject is the permanent identity key. Hybrid provisioning
+     * may initially link an unclaimed local account by email, but an email
+     * already linked to another subject remains unavailable.
      *
      * @param  array<string, mixed>  $claims
      */
@@ -44,6 +45,14 @@ class KeycloakUserProvisioner
         return DB::transaction(function () use ($sub, $email, $avatar, $name, $isActive, $mode, $now): User {
             $user = User::query()->where('keycloak_sub', $sub)->lockForUpdate()->first();
 
+            if ($user === null && $mode === 'hybrid' && $email !== null) {
+                $user = User::query()
+                    ->where('email', $email)
+                    ->whereNull('keycloak_sub')
+                    ->lockForUpdate()
+                    ->first();
+            }
+
             if ($mode === 'pre-provisioned' && $user === null) {
                 throw ValidationException::withMessages([
                     'sub' => 'Your Keycloak account has not been provisioned. Contact an administrator.',
@@ -51,12 +60,13 @@ class KeycloakUserProvisioner
             }
 
             if ($email !== null) {
-                $emailOwner = User::query()
-                    ->where('email', $email)
-                    ->where(function ($query) use ($sub) {
-                        $query->whereNull('keycloak_sub')->orWhere('keycloak_sub', '!=', $sub);
-                    })
-                    ->exists();
+                $emailOwnerQuery = User::query()->where('email', $email);
+
+                if ($user?->exists === true) {
+                    $emailOwnerQuery->where('id', '!=', $user->getKey());
+                }
+
+                $emailOwner = $emailOwnerQuery->exists();
 
                 if ($emailOwner) {
                     throw ValidationException::withMessages([
@@ -67,6 +77,11 @@ class KeycloakUserProvisioner
 
             try {
                 $user ??= new User(['keycloak_sub' => $sub, 'is_active' => true]);
+
+                if ($user->keycloak_sub === null) {
+                    $user->keycloak_sub = $sub;
+                }
+
                 $user->fill([
                     'name' => $name,
                     'email' => $email,

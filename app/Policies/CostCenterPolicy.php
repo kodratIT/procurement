@@ -5,43 +5,44 @@ namespace App\Policies;
 use App\Models\CostCenter;
 use App\Models\User;
 use App\Services\AuthorizationService;
+use App\Services\FeatureModuleService;
 use App\Support\ProcurementPermissions;
 
 class CostCenterPolicy
 {
     public function viewAny(User $user): bool
     {
-        return $this->canManage($user);
+        return app(FeatureModuleService::class)->featureIsAvailable('organization-finance.cost-centers', $user) && $this->canManage($user);
     }
 
     public function view(User $user, CostCenter $costCenter): bool
     {
-        return $this->canManageRecord($user, $costCenter);
+        return app(FeatureModuleService::class)->featureIsAvailable('organization-finance.cost-centers', $user) && $this->canManageRecord($user, $costCenter);
     }
 
     public function create(User $user): bool
     {
-        return $this->canManage($user);
+        return app(FeatureModuleService::class)->featureIsAvailable('organization-finance.cost-centers', $user) && $this->canManage($user);
     }
 
     public function update(User $user, CostCenter $costCenter): bool
     {
-        return $this->canManageRecord($user, $costCenter);
+        return app(FeatureModuleService::class)->featureIsAvailable('organization-finance.cost-centers', $user) && $this->canManageRecord($user, $costCenter);
     }
 
     public function delete(User $user, CostCenter $costCenter): bool
     {
-        return false;
+        return app(FeatureModuleService::class)->featureIsAvailable('organization-finance.cost-centers', $user) && false;
     }
 
     public function deleteAny(User $user): bool
     {
-        return false;
+        return app(FeatureModuleService::class)->featureIsAvailable('organization-finance.cost-centers', $user) && false;
     }
 
     public function deactivate(User $user, CostCenter $costCenter): bool
     {
-        return $costCenter->is_active && $this->canManageRecord($user, $costCenter);
+        return app(FeatureModuleService::class)->featureIsAvailable('organization-finance.cost-centers', $user) && $costCenter->is_active && $this->canManageRecord($user, $costCenter);
     }
 
     private function canManage(User $user): bool

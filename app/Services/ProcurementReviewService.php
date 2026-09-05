@@ -45,6 +45,8 @@ final class ProcurementReviewService
         private readonly PurchaseRequestTimeline $timeline,
         private readonly WorkflowPreviewService $workflowPreview,
         private readonly ApprovalInstanceCreator $approvalInstances,
+        private readonly FeatureModuleService $featureModules,
+        private readonly WorkflowStageService $workflowStages,
     ) {}
 
     /**
@@ -173,6 +175,7 @@ final class ProcurementReviewService
 
     /**
      * Resolve and hand a reviewed purchase request to its approval workflow.
+     * Dynamic: supports any workflow stages, not just hardcode procurement_review -> pending_approval.
      */
     public function handoffToApproval(PurchaseRequest $request, ?User $reviewer = null): PurchaseRequest
     {
@@ -180,7 +183,13 @@ final class ProcurementReviewService
         Gate::forUser($reviewer)->authorize('handoff', $request);
         $this->assertReviewContext($request, $reviewer);
 
-        if ($request->status !== PurchaseRequestStatus::ProcurementReview->value) {
+        // Dynamic: allow handoff from submitted or procurement_review or any workflow stage that is review-like
+        $allowedHandoffStatuses = [
+            PurchaseRequestStatus::Submitted->value,
+            PurchaseRequestStatus::ProcurementReview->value,
+            ...$this->workflowStages->stageKeysFor($request),
+        ];
+        if (! in_array($request->status, $allowedHandoffStatuses, true) && ! $this->workflowStages->isDynamicStage($request->status, $request)) {
             throw ValidationException::withMessages([
                 'status' => 'Only a purchase request in procurement review can be handed off to approval.',
             ]);
@@ -198,7 +207,12 @@ final class ProcurementReviewService
                     ->with(['category', 'requester', 'office', 'branch', 'department', 'costCenter.office', 'items'])
                     ->findOrFail($request->getKey());
 
-                if ($locked->status !== PurchaseRequestStatus::ProcurementReview->value) {
+                $allowedLockedStatuses = [
+                    PurchaseRequestStatus::Submitted->value,
+                    PurchaseRequestStatus::ProcurementReview->value,
+                    ...$this->workflowStages->stageKeysFor($locked),
+                ];
+                if (! in_array($locked->status, $allowedLockedStatuses, true) && ! $this->workflowStages->isDynamicStage($locked->status, $locked)) {
                     throw ValidationException::withMessages([
                         'status' => 'Only a purchase request in procurement review can be handed off to approval.',
                     ]);
@@ -212,19 +226,28 @@ final class ProcurementReviewService
 
                 $instance = $this->approvalInstances->create($locked, $reviewer, $preview['resolution']);
                 $fromStatus = $locked->status;
+                // Dynamic: set status to first workflow step's step_key if available, fallback to pending_approval
+                $firstStep = collect($preview['resolution']['steps'] ?? [])->firstWhere(fn ($s) => ($s['applicable'] ?? true) && ($s['status'] ?? null) !== 'skipped' && ($s['status'] ?? null) !== 'unresolved');
+                $nextStatus = $firstStep['step_key'] ?? PurchaseRequestStatus::PendingApproval->value;
+                // Validate nextStatus length and fallback
+                if (! is_string($nextStatus) || $nextStatus === '') {
+                    $nextStatus = PurchaseRequestStatus::PendingApproval->value;
+                }
                 PurchaseRequest::query()->withoutGlobalScopes()->whereKey($locked->getKey())->update([
-                    'status' => PurchaseRequestStatus::PendingApproval->value,
+                    'status' => $nextStatus,
                     'updated_at' => now(),
                 ]);
                 $locked->refresh();
+                $firstLabel = $firstStep['label'] ?? $nextStatus;
+                $firstApprover = $firstStep['approver_name'] ?? 'approver';
                 $this->timeline->record(
                     $locked,
                     $reviewer,
                     $fromStatus,
-                    PurchaseRequestStatus::PendingApproval->value,
+                    $nextStatus,
                     'approval_handoff',
                     'handoff',
-                    'Purchase request handed off to approval.',
+                    "PR masuk ke tahap {$firstLabel} dan menunggu persetujuan {$firstApprover}.",
                     [
                         'approval_instance_id' => $instance->getKey(),
                         'workflow' => $preview['workflow'],
@@ -236,7 +259,7 @@ final class ProcurementReviewService
                     ->event('approval_handoff')
                     ->withProperties([
                         'before' => ['status' => $fromStatus],
-                        'after' => ['status' => PurchaseRequestStatus::PendingApproval->value],
+                        'after' => ['status' => $nextStatus],
                         'approval_instance_id' => $instance->getKey(),
                         'workflow' => $preview['workflow'],
                         'steps' => $preview['steps'],
@@ -465,6 +488,8 @@ final class ProcurementReviewService
         if (! $reviewer instanceof User || ! $reviewer->is_active) {
             throw new AuthorizationException('An active authenticated reviewer is required.');
         }
+
+        $this->featureModules->assertEnabled(FeatureRegistry::FEATURE_PROCUREMENT_REVIEWS, $reviewer);
 
         return $reviewer;
     }

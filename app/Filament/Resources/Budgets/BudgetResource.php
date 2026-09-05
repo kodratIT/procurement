@@ -7,9 +7,10 @@ namespace App\Filament\Resources\Budgets;
 use App\Filament\Resources\Budgets\Pages\ManageBudgets;
 use App\Models\Budget;
 use App\Models\User;
+use App\Services\AuthorizationService;
 use App\Services\BudgetReservationService;
+use App\Services\FeatureModuleService;
 use App\Services\MultiOfficeAuthorization;
-use App\Support\ProcurementPermissions;
 use BackedEnum;
 use Filament\Actions\EditAction;
 use Filament\Forms\Components\Select;
@@ -18,6 +19,7 @@ use Filament\Resources\Resource;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
+use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
@@ -30,9 +32,23 @@ class BudgetResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedCalculator;
 
-    protected static ?string $navigationLabel = 'Budget';
+    protected static ?string $navigationLabel = 'Budgets';
+
+    protected static string|\UnitEnum|null $navigationGroup = 'Organization & Finance';
+
+    protected static ?int $navigationSort = 50;
 
     protected static ?string $modelLabel = 'budget';
+
+    public static function canAccess(): bool
+    {
+        return app(FeatureModuleService::class)->allowsResource(self::class, fn (User $user): bool => app(AuthorizationService::class)->allows($user, 'ViewAny:Budget'));
+    }
+
+    public static function canViewAny(): bool
+    {
+        return app(FeatureModuleService::class)->allowsResource(self::class, fn (User $user): bool => app(AuthorizationService::class)->allows($user, 'ViewAny:Budget'));
+    }
 
     public static function getEloquentQuery(): Builder
     {
@@ -40,7 +56,7 @@ class BudgetResource extends Resource
         $user = Auth::user();
 
         return $user instanceof User
-            ? app(MultiOfficeAuthorization::class)->scopeForUser($query, $user, ProcurementPermissions::MANAGE_FINANCE)
+            ? app(MultiOfficeAuthorization::class)->scopeForCurrentContext($query, $user, 'ViewAny:Budget')
             : $query->whereKey(0);
     }
 

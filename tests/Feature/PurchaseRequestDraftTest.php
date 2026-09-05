@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Tests\Feature;
 
 use App\Filament\Resources\PurchaseRequestResource;
+use App\Filament\Resources\PurchaseRequests\Pages\EditPurchaseRequest;
+use App\Filament\Resources\PurchaseRequests\Pages\ListPurchaseRequests;
 use App\Models\Branch;
 use App\Models\Department;
 use App\Models\Office;
@@ -18,10 +20,14 @@ use App\Services\AccessContextService;
 use App\Services\ProcurementRequestDraftSaver;
 use Database\Seeders\ProcurementRolesSeeder;
 use Filament\Facades\Filament;
+use Filament\Tables\Enums\FiltersLayout;
 use Illuminate\Auth\Access\AuthorizationException;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
+use Leek\FilamentHeaderFilters\Concerns\HasHeaderFilters;
+use Livewire\Livewire;
 use Tests\TestCase;
 
 class PurchaseRequestDraftTest extends TestCase
@@ -119,6 +125,49 @@ class PurchaseRequestDraftTest extends TestCase
         $this->assertSame($field->id, $updated->fieldValues()->first()->field_id);
     }
 
+    public function test_edit_form_hydrates_every_create_section_from_the_saved_request(): void
+    {
+        $category = ProcurementCategory::factory()->create();
+        $field = ProcurementField::factory()->create([
+            'category_id' => $category->id,
+            'key' => 'color',
+            'label' => 'Color',
+        ]);
+        [$user, $office, $branch, $department] = $this->authorizedContext();
+        Storage::fake('private');
+
+        $request = app(ProcurementRequestDraftSaver::class)->save([
+            'category_id' => $category->id,
+            'title' => 'Laptop procurement',
+            'reason' => 'New employee equipment',
+            'priority' => 'high',
+            'required_date' => '2026-09-15',
+            'fields' => [$field->key => 'Black'],
+            'items' => [[
+                'item_name' => 'Laptop',
+                'quantity' => '2.00',
+                'unit_price' => '1500.00',
+                'notes' => '16 GB RAM',
+            ]],
+            'attachments' => [UploadedFile::fake()->createWithContent('spec.txt', 'specification')],
+        ], user: $user);
+
+        Filament::setCurrentPanel('admin');
+
+        Livewire::test(EditPurchaseRequest::class, ['record' => $request->getRouteKey()])
+            ->assertSet('data.requester_display', $user->name)
+            ->assertSet('data.office_display', $office->name)
+            ->assertSet('data.branch_display', $branch->name)
+            ->assertSet('data.department_display', $department->name)
+            ->assertSet('data.title', 'Laptop procurement')
+            ->assertSet('data.items', static function (array $items): bool {
+                $item = array_values($items)[0] ?? [];
+
+                return count($items) === 1 && ($item['item_name'] ?? null) === 'Laptop';
+            })
+            ->assertSet('data.fields.color', 'Black');
+    }
+
     public function test_draft_save_requires_authorization_and_active_context(): void
     {
         $user = User::factory()->create();
@@ -135,7 +184,96 @@ class PurchaseRequestDraftTest extends TestCase
 
         $this->assertContains(PurchaseRequestResource::class, $panel->getResources());
         $this->assertSame(PurchaseRequest::class, PurchaseRequestResource::getModel());
-        $this->assertStringContainsString('status', PurchaseRequestResource::getEloquentQuery()->toRawSql());
+        // Tabel sekarang menampilkan semua status (agar PR diajukan tetap muncul & sinkron dengan card stats), bukan hanya draft/returned
+        $this->assertInstanceOf(Builder::class, PurchaseRequestResource::getEloquentQuery());
+    }
+
+    public function test_purchase_request_list_only_displays_records_owned_by_authenticated_user(): void
+    {
+        [$user, $office, $branch, $department] = $this->authorizedContext();
+        $otherUser = User::factory()->create();
+        $ownedRequest = PurchaseRequest::factory()->create([
+            'office_id' => $office->id,
+            'branch_id' => $branch->id,
+            'department_id' => $department->id,
+            'requester_id' => $user->id,
+        ]);
+        $otherRequest = PurchaseRequest::factory()->create([
+            'office_id' => $office->id,
+            'branch_id' => $branch->id,
+            'department_id' => $department->id,
+            'requester_id' => $otherUser->id,
+        ]);
+        Filament::setCurrentPanel('admin');
+
+        Livewire::test(ListPurchaseRequests::class)
+            ->loadTable()
+            ->assertCanSeeTableRecords([$ownedRequest])
+            ->assertCanNotSeeTableRecords([$otherRequest])
+            ->assertCountTableRecords(1);
+    }
+
+    public function test_purchase_request_list_uses_standard_status_tabs_and_header_filters(): void
+    {
+        [$user, $office, $branch, $department] = $this->authorizedContext();
+        $statuses = [
+            PurchaseRequest::STATUS_DRAFT,
+            PurchaseRequest::STATUS_SUBMITTED,
+            PurchaseRequest::STATUS_PROCUREMENT_REVIEW,
+            PurchaseRequest::STATUS_PENDING_APPROVAL,
+            PurchaseRequest::STATUS_RETURNED,
+            PurchaseRequest::STATUS_REJECTED,
+            PurchaseRequest::STATUS_APPROVED,
+            PurchaseRequest::STATUS_COMPLETED,
+            PurchaseRequest::STATUS_CANCELLED,
+        ];
+        $requests = collect($statuses)->mapWithKeys(function (string $status) use ($user, $office, $branch, $department): array {
+            $request = PurchaseRequest::factory()->create([
+                'office_id' => $office->getKey(),
+                'branch_id' => $branch->getKey(),
+                'department_id' => $department->getKey(),
+                'requester_id' => $user->getKey(),
+                'status' => $status,
+            ]);
+
+            return [$status => $request];
+        });
+
+        $component = Livewire::test(ListPurchaseRequests::class)->loadTable();
+        $tabs = $component->instance()->getTabs();
+        $table = $component->instance()->getTable();
+
+        $this->assertSame(
+            ['all', 'draft', 'submitted', 'in_progress', 'returned', 'rejected', 'approved', 'cancelled'],
+            array_keys($tabs),
+        );
+        $this->assertSame(
+            ['Semua', 'Draft', 'Diajukan', 'Diproses', 'Dikembalikan', 'Ditolak', 'Disetujui', 'Dibatalkan'],
+            array_values(array_map(fn ($tab): string => (string) $tab->getLabel(), $tabs)),
+        );
+        $this->assertSame('9', $tabs['all']->getBadge());
+        $this->assertSame('2', $tabs['in_progress']->getBadge());
+        $this->assertSame('2', $tabs['approved']->getBadge());
+
+        $baseQuery = fn (): Builder => PurchaseRequest::query()->where('requester_id', $user->getKey());
+        $this->assertSame(
+            [
+                $requests[PurchaseRequest::STATUS_PROCUREMENT_REVIEW]->getKey(),
+                $requests[PurchaseRequest::STATUS_PENDING_APPROVAL]->getKey(),
+            ],
+            $tabs['in_progress']->modifyQuery($baseQuery())->orderBy('id')->pluck('id')->all(),
+        );
+        $this->assertSame(
+            [
+                $requests[PurchaseRequest::STATUS_APPROVED]->getKey(),
+                $requests[PurchaseRequest::STATUS_COMPLETED]->getKey(),
+            ],
+            $tabs['approved']->modifyQuery($baseQuery())->orderBy('id')->pluck('id')->all(),
+        );
+        $this->assertContains(HasHeaderFilters::class, class_uses_recursive(ListPurchaseRequests::class));
+        $this->assertTrue($table->hasHeaderFilters());
+        $this->assertSame(['category_id', 'office_id', 'status', 'priority'], array_keys($table->getHeaderFilters()));
+        $this->assertSame(FiltersLayout::Hidden, $table->getFiltersLayout());
     }
 
     /** @return array{User, Office, Branch, Department} */

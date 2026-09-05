@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\ProcurementPermissions;
 use Carbon\CarbonInterface;
 use Database\Factories\UserAssignmentFactory;
 use Illuminate\Database\Eloquent\Builder;
@@ -13,6 +14,7 @@ use Illuminate\Support\Carbon;
 use InvalidArgumentException;
 use Spatie\Activitylog\LogOptions;
 use Spatie\Activitylog\Traits\LogsActivity;
+use Spatie\Permission\Exceptions\PermissionDoesNotExist;
 
 class UserAssignment extends Model
 {
@@ -184,7 +186,95 @@ class UserAssignment extends Model
 
         $role = $this->assignedRole()->where('is_active', true)->first();
 
-        return $role !== null && $role->hasPermissionTo($permission, 'web');
+        if ($role === null) {
+            return false;
+        }
+
+        try {
+            if ($role->hasPermissionTo($permission, 'web')) {
+                return true;
+            }
+        } catch (PermissionDoesNotExist) {
+            // fall through to fallback mapping
+        }
+
+        if (str_contains($permission, ':')) {
+            $fallback = match ($permission) {
+                'ViewAny:PurchaseRequest', 'View:PurchaseRequest', 'Create:PurchaseRequest', 'Update:PurchaseRequest' => ProcurementPermissions::VIEW,
+                'ViewAny:Quotation', 'View:Quotation' => ProcurementPermissions::VIEW,
+                'Create:Quotation', 'Update:Quotation', 'Delete:Quotation' => ProcurementPermissions::UPDATE,
+                'ViewAny:PurchaseOrder', 'View:PurchaseOrder' => ProcurementPermissions::VIEW,
+                'ViewAny:Invoice', 'View:Invoice' => ProcurementPermissions::VIEW,
+                'ViewAny:Distribution', 'View:Distribution' => ProcurementPermissions::VIEW,
+                'ViewAny:Vendor', 'View:Vendor', 'ViewAny:VendorItem', 'View:VendorItem' => ProcurementPermissions::VIEW,
+                'Create:Vendor', 'Update:Vendor', 'Delete:Vendor', 'Create:VendorItem', 'Update:VendorItem', 'Delete:VendorItem' => ProcurementPermissions::MANAGE_MASTER_DATA,
+                'ViewAny:Branch', 'View:Branch', 'Create:Branch', 'Update:Branch' => ProcurementPermissions::MANAGE_MASTER_DATA,
+                'ViewAny:Office', 'View:Office', 'Create:Office', 'Update:Office' => ProcurementPermissions::MANAGE_MASTER_DATA,
+                'ViewAny:Department', 'View:Department', 'Create:Department', 'Update:Department' => ProcurementPermissions::MANAGE_MASTER_DATA,
+                'ViewAny:CostCenter', 'View:CostCenter', 'Create:CostCenter', 'Update:CostCenter' => ProcurementPermissions::MANAGE_MASTER_DATA,
+                'ViewAny:Budget', 'View:Budget', 'Create:Budget', 'Update:Budget' => ProcurementPermissions::MANAGE_FINANCE,
+                'ViewAny:Pilgrim', 'View:Pilgrim' => ProcurementPermissions::VIEW,
+                'ViewAny:UmrahBatch', 'View:UmrahBatch' => ProcurementPermissions::VIEW,
+                'ViewAny:SampleShipment', 'View:SampleShipment' => ProcurementPermissions::VIEW,
+                'ViewAny:UserAssignment', 'View:UserAssignment', 'Create:UserAssignment', 'Update:UserAssignment' => ProcurementPermissions::MANAGE_USERS,
+                'ViewAny:Workflow', 'View:Workflow', 'Create:Workflow', 'Update:Workflow' => ProcurementPermissions::MANAGE_MASTER_DATA,
+                'ViewAny:WorkflowStep', 'View:WorkflowStep' => ProcurementPermissions::MANAGE_MASTER_DATA,
+                'ViewAny:WorkflowVersion', 'View:WorkflowVersion' => ProcurementPermissions::MANAGE_MASTER_DATA,
+                'ViewAny:ProcurementItem', 'View:ProcurementItem' => ProcurementPermissions::VIEW,
+                'ViewAny:ProcurementCategory', 'View:ProcurementCategory' => ProcurementPermissions::MANAGE_MASTER_DATA,
+                'ViewAny:ProcurementUnit', 'View:ProcurementUnit' => ProcurementPermissions::VIEW,
+                'ViewAny:ProcurementVariant', 'View:ProcurementVariant' => ProcurementPermissions::VIEW,
+                'ViewAny:ProcurementField', 'View:ProcurementField' => ProcurementPermissions::VIEW,
+                'ViewAny:ApproverMapping', 'View:ApproverMapping', 'Create:ApproverMapping', 'Update:ApproverMapping' => ProcurementPermissions::MANAGE_MASTER_DATA,
+                'ViewAny:ApproverDelegation', 'View:ApproverDelegation', 'Create:ApproverDelegation', 'Update:ApproverDelegation' => ProcurementPermissions::MANAGE_MASTER_DATA,
+                'ViewAny:ApprovalInstanceStep', 'View:ApprovalInstanceStep' => ProcurementPermissions::APPROVE,
+                default => null,
+            };
+
+            if ($fallback === null) {
+                $model = explode(':', $permission, 2)[1] ?? null;
+                $fallback = match ($model) {
+                    'PurchaseRequest' => ProcurementPermissions::VIEW,
+                    'Quotation' => ProcurementPermissions::UPDATE,
+                    'PurchaseOrder' => ProcurementPermissions::VIEW,
+                    'Invoice' => ProcurementPermissions::VIEW,
+                    'Distribution' => ProcurementPermissions::VIEW,
+                    'Vendor' => ProcurementPermissions::VIEW,
+                    'Branch' => ProcurementPermissions::MANAGE_MASTER_DATA,
+                    'Office' => ProcurementPermissions::MANAGE_MASTER_DATA,
+                    'Department' => ProcurementPermissions::MANAGE_MASTER_DATA,
+                    'CostCenter' => ProcurementPermissions::MANAGE_MASTER_DATA,
+                    'Budget' => ProcurementPermissions::MANAGE_FINANCE,
+                    'Pilgrim' => ProcurementPermissions::VIEW,
+                    'UmrahBatch' => ProcurementPermissions::VIEW,
+                    'SampleShipment' => ProcurementPermissions::VIEW,
+                    'UserAssignment' => ProcurementPermissions::VIEW,
+                    'Workflow' => ProcurementPermissions::MANAGE_MASTER_DATA,
+                    'WorkflowStep' => ProcurementPermissions::MANAGE_MASTER_DATA,
+                    'WorkflowVersion' => ProcurementPermissions::MANAGE_MASTER_DATA,
+                    'ProcurementItem' => ProcurementPermissions::VIEW,
+                    'ProcurementCategory' => ProcurementPermissions::MANAGE_MASTER_DATA,
+                    'ProcurementUnit' => ProcurementPermissions::VIEW,
+                    'ProcurementVariant' => ProcurementPermissions::VIEW,
+                    'ProcurementField' => ProcurementPermissions::VIEW,
+                    'ApproverMapping' => ProcurementPermissions::MANAGE_MASTER_DATA,
+                    'ApproverDelegation' => ProcurementPermissions::MANAGE_MASTER_DATA,
+                    'ApprovalInstanceStep' => ProcurementPermissions::APPROVE,
+                    'VendorItem' => ProcurementPermissions::VIEW,
+                    default => null,
+                };
+            }
+
+            if ($fallback !== null) {
+                try {
+                    return $role->hasPermissionTo($fallback, 'web');
+                } catch (PermissionDoesNotExist) {
+                    return false;
+                }
+            }
+        }
+
+        return false;
     }
 
     public function getActivitylogOptions(): LogOptions

@@ -4,9 +4,13 @@ namespace App\Filament\Resources\Offices;
 
 use App\Filament\Resources\Offices\Pages\ManageOffices;
 use App\Models\Office;
-use App\Services\AccessContextService;
+use App\Models\User;
+use App\Services\AuthorizationService;
+use App\Services\FeatureModuleService;
+use App\Services\MultiOfficeAuthorization;
 use BackedEnum;
 use Filament\Actions\Action;
+use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
@@ -26,16 +30,34 @@ class OfficeResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedBuildingOffice2;
 
-    protected static ?string $navigationLabel = 'Kantor';
+    protected static ?string $navigationLabel = 'Offices';
+
+    protected static string|\UnitEnum|null $navigationGroup = 'Organization & Finance';
+
+    protected static ?int $navigationSort = 20;
+
+    public static function canAccess(): bool
+    {
+        return app(FeatureModuleService::class)->allowsResource(self::class, fn (User $user): bool => app(AuthorizationService::class)->allows($user, 'ViewAny:Office'));
+    }
+
+    public static function canViewAny(): bool
+    {
+        return app(FeatureModuleService::class)->allowsResource(self::class, fn (User $user): bool => app(AuthorizationService::class)->allows($user, 'ViewAny:Office'));
+    }
 
     public static function getEloquentQuery(): Builder
     {
         $query = parent::getEloquentQuery();
         $user = Auth::user();
 
-        return $user === null
-            ? $query->whereKey(0)
-            : $query->whereIn('id', app(AccessContextService::class)->allowedOffices($user)->modelKeys());
+        return $user instanceof User
+            ? app(MultiOfficeAuthorization::class)->scopeForCurrentContext(
+                $query,
+                $user,
+                'ViewAny:Office',
+            )
+            : $query->whereKey(0);
     }
 
     protected static ?string $modelLabel = 'kantor';
@@ -72,6 +94,8 @@ class OfficeResource extends Resource
             ])
             ->recordActions([
                 EditAction::make(),
+                DeleteAction::make()
+                    ->visible(fn (Office $record): bool => $record->isReferenceFree()),
                 Action::make('deactivate')
                     ->label('Nonaktifkan')
                     ->requiresConfirmation()

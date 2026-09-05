@@ -19,6 +19,8 @@ use Illuminate\Support\Facades\Notification;
 
 final class ApprovalTaskLifecycleService
 {
+    public function __construct(private readonly FeatureModuleService $featureModules) {}
+
     /** @return Builder<ApprovalInstanceStep> */
     public function pendingTasks(?User $user = null): Builder
     {
@@ -42,7 +44,18 @@ final class ApprovalTaskLifecycleService
             ])
             ->where('status', 'pending')
             ->whereHas('approvalInstance', fn (Builder $query): Builder => $query->whereIn('status', ['pending', 'in_progress']))
-            ->whereHas('approvalInstance.purchaseRequest', fn ($query) => $query->withoutGlobalScopes());
+            ->whereHas('approvalInstance.purchaseRequest', fn ($query) => $query->withoutGlobalScopes())
+            ->whereNotExists(function ($subquery): void {
+                $subquery->selectRaw('1')
+                    ->from('approval_instance_steps as earlier_step')
+                    ->whereColumn('earlier_step.approval_instance_id', 'approval_instance_steps.approval_instance_id')
+                    ->whereIn('earlier_step.status', ['pending', 'queued'])
+                    ->whereColumn('earlier_step.step_order', '<', 'approval_instance_steps.step_order');
+            });
+
+        if (! $this->featureModules->featureIsAvailable(FeatureRegistry::FEATURE_APPROVAL_INBOX, $user)) {
+            return $query->whereKey(0);
+        }
 
         if (! $user instanceof User) {
             return $query->whereKey(0);
@@ -66,6 +79,10 @@ final class ApprovalTaskLifecycleService
 
     public function notifyAssignments(ApprovalInstance $instance): int
     {
+        if (! $this->featureModules->featureIsAvailable(FeatureRegistry::FEATURE_APPROVAL_INBOX)) {
+            return 0;
+        }
+
         $count = 0;
 
         foreach ($instance->steps()->where('status', 'pending')->with(['approver', 'approvalInstance.purchaseRequest'])->get() as $step) {
@@ -85,6 +102,10 @@ final class ApprovalTaskLifecycleService
      */
     public function processSla(?Carbon $now = null): array
     {
+        if (! $this->featureModules->featureIsAvailable(FeatureRegistry::FEATURE_APPROVAL_INBOX)) {
+            return ['warnings' => 0, 'expired' => 0, 'escalated' => 0];
+        }
+
         $now ??= Carbon::now();
         $result = ['warnings' => 0, 'expired' => 0, 'escalated' => 0];
 

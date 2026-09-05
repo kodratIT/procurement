@@ -12,13 +12,17 @@ use Illuminate\Validation\ValidationException;
 
 final class ApprovalInstanceCreator
 {
-    public function __construct(private readonly ApprovalTaskLifecycleService $tasks) {}
+    public function __construct(
+        private readonly ApprovalTaskLifecycleService $tasks,
+        private readonly FeatureModuleService $featureModules,
+    ) {}
 
     /**
      * @param  array{reference: string, version?: int, workflow_version_id?: int|null, context?: array<string, mixed>, steps: list<array<string, mixed>>}  $resolution
      */
     public function create(PurchaseRequest $request, User $submitter, array $resolution): ApprovalInstance
     {
+        $this->featureModules->assertEnabled(FeatureRegistry::FEATURE_APPROVAL_INBOX, $submitter);
         $steps = array_values($resolution['steps'] ?? []);
         $applicableSteps = array_values(array_filter(
             $steps,
@@ -102,6 +106,7 @@ final class ApprovalInstanceCreator
 
                 $instance->steps()->create([
                     'step_order' => (int) ($step['step_order'] ?? $index + 1),
+                    'workflow_step_id' => $step['workflow_step_id'] ?? null,
                     'step_key' => (string) ($step['step_key'] ?? 'approval_'.($index + 1).'_'.$approverIndex),
                     'label' => (string) ($step['label'] ?? 'Approval'),
                     'resolver_type' => (string) ($step['resolver_type'] ?? 'custom'),

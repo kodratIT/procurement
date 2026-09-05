@@ -36,18 +36,9 @@ final class PurchaseRequestSubmitTest extends TestCase
 
         $this->assertSame(PurchaseRequestStatus::Submitted->value, $submitted->status);
         $this->assertMatchesRegularExpression('/^PR-\d{6}-\d{4}$/', $submitted->pr_number);
-        $this->assertDatabaseHas('approval_instances', [
+        // submit only promotes to Submitted — approval instance is created at handoff (forward → handoffToApproval)
+        $this->assertDatabaseMissing('approval_instances', [
             'purchase_request_id' => $request->id,
-            'requester_id' => $submitter->id,
-            'submitted_by_id' => $submitter->id,
-            'office_id' => $office->id,
-            'workflow_reference' => 'standard-procurement',
-        ]);
-        $this->assertDatabaseHas('approval_instance_steps', [
-            'approver_id' => $approver->id,
-            'approver_name' => 'Procurement Reviewer',
-            'approver_role' => 'Manager',
-            'office_id' => $office->id,
         ]);
         $this->assertDatabaseHas('purchase_request_status_histories', [
             'purchase_request_id' => $request->id,
@@ -108,22 +99,33 @@ final class PurchaseRequestSubmitTest extends TestCase
         [$submitter, $office, $category] = $this->submitterContext();
         $request = $this->draft($submitter, $category);
 
-        $caught = false;
+        // submit only validates draft→submitted; approver resolution happens at handoff
+        $submitted = app(ProcurementRequestSubmitter::class)->submit($request, $submitter);
+
+        $this->assertSame(PurchaseRequestStatus::Submitted->value, $submitted->status);
+        $this->assertDatabaseMissing('approval_instances', ['purchase_request_id' => $request->id]);
+    }
+
+    public function test_dynamic_workflow_with_missing_approver_rejects_submit_without_changing_the_draft(): void
+    {
+        [$submitter, , $category] = $this->submitterContext();
+        ProcurementCategory::query()->whereKey($category->getKey())->update(['workflow_reference' => 'marketing-only']);
+        $request = $this->draft($submitter, $category);
+
         try {
             app(ProcurementRequestSubmitter::class)->submit($request, $submitter);
+            $this->fail('A dynamic workflow without resolved approvers must not be submitted.');
         } catch (ValidationException $exception) {
-            $caught = true;
-            $this->assertSame([
-                'No eligible approver is configured for this purchase request scope. Contact procurement administration.',
-            ], $exception->errors()['workflow']);
+            $this->assertNotEmpty($exception->errors()['workflow'] ?? []);
         }
-
-        $this->assertTrue($caught);
 
         $this->assertDatabaseHas('purchase_requests', [
             'id' => $request->id,
             'status' => PurchaseRequestStatus::Draft->value,
+            'pr_number' => 'DRAFT-'.$request->id,
         ]);
+        $this->assertDatabaseMissing('approval_instances', ['purchase_request_id' => $request->id]);
+        $this->assertDatabaseMissing('purchase_request_status_histories', ['purchase_request_id' => $request->id]);
     }
 
     public function test_submit_is_denied_outside_the_request_office_scope(): void

@@ -6,7 +6,12 @@ use App\Filament\Exports\UserAssignmentExporter;
 use App\Filament\Resources\UserAssignments\Pages\ManageUserAssignments;
 use App\Models\AssignmentPermissionOverride;
 use App\Models\AssignmentScope;
+use App\Models\User;
 use App\Models\UserAssignment;
+use App\Services\AuthorizationService;
+use App\Services\FeatureModuleService;
+use App\Services\FeatureRegistry;
+use App\Services\MultiOfficeAuthorization;
 use BackedEnum;
 use Filament\Actions\BulkAction;
 use Filament\Actions\BulkActionGroup;
@@ -27,9 +32,12 @@ use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Gate;
 
 class UserAssignmentResource extends Resource
 {
@@ -37,7 +45,11 @@ class UserAssignmentResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedRectangleStack;
 
-    protected static ?string $navigationLabel = 'User Assignments';
+    protected static ?string $navigationLabel = 'Assignments';
+
+    protected static string|\UnitEnum|null $navigationGroup = 'Umrah Operations';
+
+    protected static ?int $navigationSort = 50;
 
     protected static ?string $modelLabel = 'user assignment';
 
@@ -70,21 +82,21 @@ class UserAssignmentResource extends Resource
             Select::make('branch_id')
                 ->label('Cabang')
                 ->relationship('branch', 'name', function (Builder $query, Get $get): Builder {
-                    return $query->where('is_active', true)->where('office_id', $get->get('office_id'));
+                    return $query->where('is_active', true)->where('office_id', $get->integer('office_id'));
                 })
                 ->searchable()
                 ->preload(),
             Select::make('department_id')
                 ->label('Departemen')
                 ->relationship('department', 'name', function (Builder $query, Get $get): Builder {
-                    return $query->where('is_active', true)->where('office_id', $get->get('office_id'));
+                    return $query->where('is_active', true)->where('office_id', $get->integer('office_id'));
                 })
                 ->searchable()
                 ->preload(),
             Select::make('cost_center_id')
                 ->label('Cost center')
                 ->relationship('costCenter', 'name', function (Builder $query, Get $get): Builder {
-                    return $query->where('is_active', true)->where('office_id', $get->get('office_id'));
+                    return $query->where('is_active', true)->where('office_id', $get->integer('office_id'));
                 })
                 ->searchable()
                 ->preload(),
@@ -158,6 +170,7 @@ class UserAssignmentResource extends Resource
                     ->icon(Heroicon::OutlinedStar)
                     ->requiresConfirmation()
                     ->action(function (Collection $records): void {
+                        self::authorizeBulk($records);
                         DB::transaction(function () use ($records): void {
                             foreach ($records as $assignment) {
                                 UserAssignment::query()
@@ -170,6 +183,7 @@ class UserAssignmentResource extends Resource
                 BulkAction::make('activate')
                     ->label('Activate')
                     ->action(function (Collection $records): void {
+                        self::authorizeBulk($records);
                         $records->each(function (UserAssignment $assignment): void {
                             $assignment->update(['is_active' => true, 'disabled_at' => null]);
                         });
@@ -178,6 +192,7 @@ class UserAssignmentResource extends Resource
                     ->label('Deactivate')
                     ->requiresConfirmation()
                     ->action(function (Collection $records): void {
+                        self::authorizeBulk($records);
                         $records->each(function (UserAssignment $assignment): void {
                             $assignment->update(['is_active' => false, 'disabled_at' => now()]);
                         });
@@ -187,18 +202,50 @@ class UserAssignmentResource extends Resource
         ]);
     }
 
+    private static function authorizeBulk(Collection $records): void
+    {
+        $user = Auth::user();
+        if (! $user instanceof User) {
+            throw new AuthorizationException('An authenticated user is required.');
+        }
+
+        app(FeatureModuleService::class)->assertEnabled(FeatureRegistry::FEATURE_ASSIGNMENTS, $user);
+
+        foreach ($records as $assignment) {
+            if (! $assignment instanceof UserAssignment) {
+                throw new AuthorizationException('Invalid assignment records selected.');
+            }
+
+            Gate::forUser($user)->authorize('update', $assignment);
+        }
+    }
+
+    public static function canAccess(): bool
+    {
+        return app(FeatureModuleService::class)->allowsResource(self::class, fn (User $user): bool => app(AuthorizationService::class)->allows($user, 'ViewAny:UserAssignment'));
+    }
+
+    public static function canViewAny(): bool
+    {
+        return app(FeatureModuleService::class)->allowsResource(self::class, fn (User $user): bool => app(AuthorizationService::class)->allows($user, 'ViewAny:UserAssignment'));
+    }
+
     public static function getEloquentQuery(): Builder
     {
-        return parent::getEloquentQuery()->with([
-            'user',
-            'office',
-            'branch',
-            'department',
-            'costCenter',
-            'assignedRole',
-            'scopes',
-            'permissionOverrides.permission',
-        ]);
+        return app(MultiOfficeAuthorization::class)->scopeForCurrentContext(
+            parent::getEloquentQuery()->with([
+                'user',
+                'office',
+                'branch',
+                'department',
+                'costCenter',
+                'assignedRole',
+                'scopes',
+                'permissionOverrides.permission',
+            ]),
+            auth()->user(),
+            'ViewAny:UserAssignment',
+        );
     }
 
     public static function getPages(): array

@@ -11,7 +11,7 @@ Render a local Filament login page first, with one SSO action that continues to 
 ## Architecture
 
 - Add `App\\Filament\\Pages\\Auth\\Login` extending `Filament\\Auth\\Pages\\Login`.
-- Keep Filament's existing page lifecycle, including redirecting already-authenticated users away from the login page.
+- Preserve Filament's normal authenticated-user redirect for allowed users; render a logout-only state for authenticated users denied by assignment.
 - Override the credential form content with a full-width Filament action labeled `Masuk dengan Keycloak` and linked to the named `keycloak.redirect` route.
 - Register the page with `AdminPanelProvider::panel()` via `->login(Login::class)`.
 - Leave `KeycloakController`, PKCE state handling, callback validation, and user provisioning unchanged.
@@ -29,7 +29,7 @@ Render a local Filament login page first, with one SSO action that continues to 
 
 - Missing Keycloak configuration remains a 503 from the existing redirect controller after the SSO action is selected.
 - OAuth state, nonce, token, subject, and provisioning failures remain governed by the existing callback behavior.
-- Authenticated users continue to be redirected by Filament instead of seeing the login page.
+- Allowed authenticated users continue to be redirected by Filament; blocked authenticated users see the local page with a logout action.
 
 ## Verification
 

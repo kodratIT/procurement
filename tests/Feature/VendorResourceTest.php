@@ -30,8 +30,14 @@ class VendorResourceTest extends TestCase
         $panel = Filament::getPanel('admin');
         $admin = User::factory()->create();
         $admin->assignRole('Admin');
+        $adminOffice = Office::factory()->create();
+        $adminRole = Role::query()->where('name', 'Admin')->firstOrFail();
+        UserAssignment::factory()->create(['user_id' => $admin->id, 'office_id' => $adminOffice->id, 'role_id' => $adminRole->id, 'is_primary' => true]);
         $viewer = User::factory()->create();
         $viewer->assignRole('Viewer');
+        $viewerOffice = Office::factory()->create();
+        $viewerRole = Role::query()->where('name', 'Viewer')->firstOrFail();
+        UserAssignment::factory()->create(['user_id' => $viewer->id, 'office_id' => $viewerOffice->id, 'role_id' => $viewerRole->id, 'is_primary' => true]);
         $vendor = Vendor::factory()->create();
         $vendorItem = VendorItem::factory()->create(['vendor_id' => $vendor->id]);
 
@@ -83,10 +89,19 @@ class VendorResourceTest extends TestCase
         $this->seed(ProcurementRolesSeeder::class);
         $admin = User::factory()->create();
         $admin->assignRole('Admin');
+        $adminOffice = Office::factory()->create();
+        $adminRole = Role::query()->where('name', 'Admin')->firstOrFail();
+        UserAssignment::factory()->create(['user_id' => $admin->id, 'office_id' => $adminOffice->id, 'role_id' => $adminRole->id, 'is_primary' => true]);
         $auditor = User::factory()->create();
         $auditor->assignRole('Auditor');
+        $auditorOffice = Office::factory()->create();
+        $auditorRole = Role::query()->where('name', 'Auditor')->firstOrFail();
+        UserAssignment::factory()->create(['user_id' => $auditor->id, 'office_id' => $auditorOffice->id, 'role_id' => $auditorRole->id, 'is_primary' => true]);
         $viewer = User::factory()->create();
         $viewer->assignRole('Viewer');
+        $viewerOffice = Office::factory()->create();
+        $viewerRole = Role::query()->where('name', 'Viewer')->firstOrFail();
+        UserAssignment::factory()->create(['user_id' => $viewer->id, 'office_id' => $viewerOffice->id, 'role_id' => $viewerRole->id, 'is_primary' => true]);
 
         Auth::login($auditor);
         $safeColumns = collect(VendorExporter::getVisibleColumns())
@@ -163,6 +178,9 @@ class VendorResourceTest extends TestCase
         $this->seed(ProcurementRolesSeeder::class);
         $admin = User::factory()->create();
         $admin->assignRole('Admin');
+        $adminOffice = Office::factory()->create();
+        $adminRole = Role::query()->where('name', 'Admin')->firstOrFail();
+        UserAssignment::factory()->create(['user_id' => $admin->id, 'office_id' => $adminOffice->id, 'role_id' => $adminRole->id, 'is_primary' => true]);
         $vendor = Vendor::factory()->create();
         $vendorItem = VendorItem::factory()->create(['vendor_id' => $vendor->id]);
 

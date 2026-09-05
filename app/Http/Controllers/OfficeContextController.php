@@ -19,13 +19,24 @@ class OfficeContextController extends Controller
             'department_id' => ['nullable', 'integer'],
             'role_id' => ['nullable', 'integer'],
         ]);
-        $this->context->setContext([
-            'assignment_id' => isset($validated['assignment_id']) ? (int) $validated['assignment_id'] : null,
-            'office_id' => isset($validated['office_id']) ? (int) $validated['office_id'] : null,
-            'branch_id' => array_key_exists('branch_id', $validated) ? $validated['branch_id'] : null,
-            'department_id' => array_key_exists('department_id', $validated) ? $validated['department_id'] : null,
-            'role_id' => array_key_exists('role_id', $validated) ? $validated['role_id'] : null,
-        ]);
+
+        $context = [];
+
+        if (isset($validated['assignment_id']) && $validated['assignment_id'] !== null) {
+            $context['assignment_id'] = (int) $validated['assignment_id'];
+        }
+
+        if (isset($validated['office_id']) && $validated['office_id'] !== null) {
+            $context['office_id'] = (int) $validated['office_id'];
+        }
+
+        foreach (['branch_id', 'department_id', 'role_id'] as $column) {
+            if (array_key_exists($column, $validated)) {
+                $context[$column] = $validated[$column] !== null ? (int) $validated[$column] : null;
+            }
+        }
+
+        $this->context->setContext($context);
 
         return redirect()->back()->with('status', 'Active access context changed.');
     }

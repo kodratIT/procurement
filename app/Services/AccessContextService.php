@@ -308,7 +308,12 @@ class AccessContextService
         $query = $this->activeAssignments($user);
 
         if (isset($context['assignment_id']) && is_numeric($context['assignment_id'])) {
-            $query->whereKey((int) $context['assignment_id']);
+            return $query
+                ->whereKey((int) $context['assignment_id'])
+                ->with(['office', 'branch', 'department', 'assignedRole', 'scopes'])
+                ->orderByDesc('is_primary')
+                ->orderBy('id')
+                ->first();
         }
 
         if (isset($context['office_id']) && is_numeric($context['office_id'])) {

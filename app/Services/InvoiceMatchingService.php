@@ -26,62 +26,15 @@ final class InvoiceMatchingService
         private readonly MultiOfficeAuthorization $authorization,
         private readonly AttachmentService $attachments,
         private readonly ReceivingService $receiving,
+        private readonly FeatureModuleService $featureModules,
     ) {}
 
     /**
      * Evaluate an invoice against the approved PO and received quantities.
      *
      * @param  array<string, mixed>  $data
-     * @return array{matched:bool,reasons:list<string>,po_total:string,received_total:string,remaining_po_total:string,remaining_received_total:string,invoice_total:string,lines:list<array<string,mixed>>}
-     */
-    public function check(PurchaseOrder $order, array $data): array
-    {
-        $order->loadMissing(['items', 'goodsReceipts.items']);
-        $total = $this->money($data['total_amount'] ?? null, 'total_amount');
-        $lines = $this->normaliseLines($order, $data['lines'] ?? [], false);
-        $receivedQuantities = $this->receiving->receivedQuantities($order);
-        $receivedTotal = $this->receivedTotal($order->items, $receivedQuantities);
-        $previouslyInvoiced = $this->previouslyInvoiced($order);
-        $poTotal = $this->money($order->total_amount, 'purchase_order');
-        $remainingPoTotal = $this->nonNegative(bcsub($poTotal, $previouslyInvoiced, 2));
-        $remainingReceivedTotal = $this->nonNegative(bcsub($receivedTotal, $previouslyInvoiced, 2));
-        $reasons = [];
-
-        if (bccomp($total, $remainingPoTotal, 2) > 0) {
-            $reasons[] = sprintf('Invoice total %s exceeds the remaining approved PO amount of %s.', $total, $remainingPoTotal);
-        }
-        if (bccomp($total, $remainingReceivedTotal, 2) > 0) {
-            $reasons[] = sprintf('Invoice total %s exceeds the remaining received evidence amount of %s.', $total, $remainingReceivedTotal);
-        }
-
-        $lineResult = $this->checkLines($order, $lines, $receivedQuantities);
-        $reasons = [...$reasons, ...$lineResult['reasons']];
-        if ($lines !== [] && bccomp($lineResult['total'], $total, 2) !== 0) {
-            $reasons[] = sprintf('Invoice lines total %s does not equal the invoice total of %s.', $lineResult['total'], $total);
-        }
-
-        return [
-            'matched' => $reasons === [],
-            'reasons' => array_values(array_unique($reasons)),
-            'po_total' => $poTotal,
-            'received_total' => $receivedTotal,
-            'remaining_po_total' => $remainingPoTotal,
-            'remaining_received_total' => $remainingReceivedTotal,
-            'invoice_total' => $total,
-            'lines' => $lineResult['lines'],
-        ];
-    }
-
-    /** @param array<string, mixed> $data */
-    public function match(PurchaseOrder $order, array $data): array
-    {
-        return $this->check($order, $data);
-    }
-
-    /**
-     * Record a matched invoice and its private evidence.
-     *
      * @param  array<string, mixed>  $data
+     * @return array{matched:bool,reasons:list<string>,po_total:string,received_total:string,remaining_po_total:string,remaining_received_total:string,invoice_total:string,lines:list<array<string,mixed>>}
      */
     public function record(PurchaseOrder $order, array $data, ?User $actor = null): Invoice
     {
@@ -232,6 +185,8 @@ final class InvoiceMatchingService
     /** @return array<string, mixed> */
     public function explanation(Invoice $invoice): array
     {
+        $this->featureModules->assertEnabled(FeatureRegistry::FEATURE_INVOICES);
+
         return [
             'match_status' => $invoice->match_status,
             'review_status' => $invoice->review_status,
@@ -368,6 +323,8 @@ final class InvoiceMatchingService
         if (! $actor instanceof User) {
             throw new AuthorizationException('An authenticated finance user is required.');
         }
+
+        $this->featureModules->assertEnabled(FeatureRegistry::FEATURE_INVOICES, $actor);
 
         return $actor;
     }

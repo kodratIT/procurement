@@ -7,6 +7,7 @@ namespace App\Policies;
 use App\Models\ProcurementCategory;
 use App\Models\User;
 use App\Services\AuthorizationService;
+use App\Services\FeatureModuleService;
 use App\Support\ProcurementPermissions;
 
 final class ProcurementCategoryPolicy
@@ -15,12 +16,12 @@ final class ProcurementCategoryPolicy
 
     public function viewAny(User $user): bool
     {
-        return $this->canManage($user);
+        return app(FeatureModuleService::class)->featureIsAvailable('master-data.categories', $user) && $this->canManage($user);
     }
 
     public function view(User $user, ProcurementCategory $category): bool
     {
-        return $this->authorization->canManageRecord(
+        return app(FeatureModuleService::class)->featureIsAvailable('master-data.categories', $user) && $this->authorization->canManageRecord(
             $user,
             ProcurementPermissions::MANAGE_MASTER_DATA,
             $category,
@@ -29,12 +30,12 @@ final class ProcurementCategoryPolicy
 
     public function create(User $user): bool
     {
-        return $this->canManage($user);
+        return app(FeatureModuleService::class)->featureIsAvailable('master-data.categories', $user) && $this->canManage($user);
     }
 
     public function update(User $user, ProcurementCategory $category): bool
     {
-        return $this->authorization->canManageRecord(
+        return app(FeatureModuleService::class)->featureIsAvailable('master-data.categories', $user) && $this->authorization->canManageRecord(
             $user,
             ProcurementPermissions::MANAGE_MASTER_DATA,
             $category,
@@ -43,7 +44,7 @@ final class ProcurementCategoryPolicy
 
     public function delete(User $user, ProcurementCategory $category): bool
     {
-        return $this->authorization->canManageRecord(
+        return app(FeatureModuleService::class)->featureIsAvailable('master-data.categories', $user) && $this->authorization->canManageRecord(
             $user,
             ProcurementPermissions::MANAGE_MASTER_DATA,
             $category,
@@ -54,12 +55,12 @@ final class ProcurementCategoryPolicy
 
     public function deleteAny(User $user): bool
     {
-        return false;
+        return app(FeatureModuleService::class)->featureIsAvailable('master-data.categories', $user) && false;
     }
 
     public function deactivate(User $user, ProcurementCategory $category): bool
     {
-        return $category->is_active && $this->authorization->canManageRecord(
+        return app(FeatureModuleService::class)->featureIsAvailable('master-data.categories', $user) && $category->is_active && $this->authorization->canManageRecord(
             $user,
             ProcurementPermissions::MANAGE_MASTER_DATA,
             $category,
@@ -68,7 +69,7 @@ final class ProcurementCategoryPolicy
 
     public function activate(User $user, ProcurementCategory $category): bool
     {
-        return ! $category->is_active && $this->authorization->canManageRecord(
+        return app(FeatureModuleService::class)->featureIsAvailable('master-data.categories', $user) && ! $category->is_active && $this->authorization->canManageRecord(
             $user,
             ProcurementPermissions::MANAGE_MASTER_DATA,
             $category,

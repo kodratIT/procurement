@@ -80,7 +80,8 @@ final class ReturnedPurchaseRequestTest extends TestCase
             'from_status' => PurchaseRequestStatus::Returned->value,
             'to_status' => PurchaseRequestStatus::Submitted->value,
         ]);
-        $this->assertSame(2, $resubmitted->approvalInstances()->count());
+        // resubmit only promotes Returned→Submitted; approval instances are created at forward→handoff, not at submit
+        $this->assertSame(0, $resubmitted->approvalInstances()->count());
         $timeline = app(PurchaseRequestTimeline::class)->for($resubmitted, $submitter);
         $this->assertSame(['submitted', 'returned', 'correction_saved', 'resubmitted'], $timeline->pluck('event')->all());
     }

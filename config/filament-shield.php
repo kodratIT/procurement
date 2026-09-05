@@ -1,6 +1,10 @@
 <?php
 
 declare(strict_types=1);
+
+use App\Filament\Resources\PurchaseRequestResource;
+use App\Filament\Resources\VendorResource;
+use App\Filament\Resources\WorkflowResource;
 use BezhanSalleh\FilamentShield\Resources\Roles\RoleResource;
 use Filament\Pages\Dashboard;
 use Filament\Widgets\AccountWidget;
@@ -24,9 +28,9 @@ return [
         'show_model_path' => true,
         'cluster' => null,
         'tabs' => [
-            'pages' => true,
-            'widgets' => true,
             'resources' => true,
+            'pages' => true,
+            'widgets' => false,
             'custom_permissions' => false,
         ],
     ],
@@ -193,6 +197,36 @@ return [
                 'update',
                 'delete',
             ],
+            PurchaseRequestResource::class => [
+                'viewAny',
+                'view',
+                'create',
+                'update',
+                'delete',
+                'submit',
+                'return',
+                'review',
+                'handoff',
+                'forward',
+                'viewTimeline',
+            ],
+            WorkflowResource::class => [
+                'viewAny',
+                'view',
+                'create',
+                'update',
+                'delete',
+                'activate',
+                'retire',
+            ],
+            VendorResource::class => [
+                'viewAny',
+                'view',
+                'create',
+                'update',
+                'delete',
+                'viewSensitiveData',
+            ],
         ],
         'exclude' => [
             //
@@ -253,16 +287,6 @@ return [
     */
 
     'custom_permissions' => [
-        'procurement.view',
-        'procurement.create',
-        'procurement.update',
-        'procurement.delete',
-        'procurement.approve',
-        'procurement.export',
-        'procurement.manage-master-data',
-        'procurement.manage-finance',
-        'procurement.manage-users',
-        'procurement.manage-roles',
     ],
 
     /*

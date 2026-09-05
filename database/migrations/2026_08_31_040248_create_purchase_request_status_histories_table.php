@@ -26,7 +26,7 @@ return new class extends Migration
             $table->json('context')->nullable();
             $table->timestamps();
 
-            $table->index(['purchase_request_id', 'created_at']);
+            $table->index(['purchase_request_id', 'created_at'], 'request_history_created_index');
             $table->index(['office_id', 'to_status']);
         });
     }

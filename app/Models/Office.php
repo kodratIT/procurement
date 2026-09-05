@@ -84,14 +84,14 @@ class Office extends Model
         ])->save();
     }
 
-    private function hasReferences(): bool
+    public function isReferenceFree(): bool
     {
         foreach (['branches', 'departments', 'cost_centers', 'user_assignments', 'purchase_requests'] as $table) {
             if (DB::table($table)->where('office_id', $this->getKey())->exists()) {
-                return true;
+                return false;
             }
         }
 
-        return DB::table('office_user')->where('office_id', $this->getKey())->exists();
+        return ! DB::table('office_user')->where('office_id', $this->getKey())->exists();
     }
 }

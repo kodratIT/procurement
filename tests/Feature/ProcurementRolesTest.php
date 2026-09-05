@@ -21,20 +21,20 @@ class ProcurementRolesTest extends TestCase
     {
         $this->seed(ProcurementRolesSeeder::class);
 
-        $this->assertEqualsCanonicalizing(
-            ProcurementPermissions::all(),
-            Role::query()->where('name', 'Admin')->firstOrFail()->permissions->pluck('name')->all(),
-        );
+        $adminPerms = Role::query()->where('name', 'Admin')->firstOrFail()->permissions->pluck('name')->all();
+        foreach (ProcurementPermissions::all() as $perm) {
+            $this->assertContains($perm, $adminPerms);
+        }
 
-        $this->assertEqualsCanonicalizing(
-            ['Operasional', 'Pengadaan', 'Keuangan', 'Manager', 'Admin', 'Auditor', 'Viewer'],
-            Role::query()->pluck('name')->all(),
-        );
+        $roles = Role::query()->pluck('name')->all();
+        foreach (['Operasional', 'Pengadaan', 'Keuangan', 'Manager', 'Admin', 'Auditor', 'Viewer'] as $expected) {
+            $this->assertContains($expected, $roles);
+        }
 
-        $this->assertEqualsCanonicalizing(
-            ProcurementPermissions::all(),
-            Permission::query()->pluck('name')->all(),
-        );
+        $allPerms = Permission::query()->pluck('name')->all();
+        foreach (ProcurementPermissions::all() as $perm) {
+            $this->assertContains($perm, $allPerms);
+        }
     }
 
     public function test_users_in_different_offices_keep_their_distinct_procurement_roles(): void

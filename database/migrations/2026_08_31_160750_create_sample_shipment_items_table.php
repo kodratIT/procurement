@@ -22,8 +22,8 @@ return new class extends Migration
             $table->text('notes')->nullable();
             $table->timestamps();
 
-            $table->unique(['shipment_id', 'procurement_item_id', 'procurement_variant_id']);
-            $table->index(['procurement_item_id', 'procurement_variant_id']);
+            $table->unique(['shipment_id', 'procurement_item_id', 'procurement_variant_id'], 'sample_shipment_item_unique');
+            $table->index(['procurement_item_id', 'procurement_variant_id'], 'sample_shipment_item_procurement_index');
         });
     }
 

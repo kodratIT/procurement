@@ -11,10 +11,11 @@ use App\Filament\Resources\ProcurementReviews\Pages\ViewProcurementReview;
 use App\Models\ProcurementField;
 use App\Models\PurchaseRequest;
 use App\Models\User;
-use App\Services\AccessContextService;
+use App\Services\AuthorizationService;
+use App\Services\FeatureModuleService;
+use App\Services\FeatureRegistry;
 use App\Services\ProcurementReviewService;
 use App\Services\WorkflowPreviewService;
-use App\Support\ProcurementPermissions;
 use Filament\Actions\Action;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
@@ -44,7 +45,11 @@ final class ProcurementReviewResource extends Resource
 
     protected static string|\BackedEnum|null $navigationIcon = Heroicon::OutlinedClipboardDocumentCheck;
 
-    protected static ?string $navigationLabel = 'Review Pengadaan';
+    protected static ?string $navigationLabel = 'Procurement Reviews';
+
+    protected static string|\UnitEnum|null $navigationGroup = null;
+
+    protected static ?int $navigationSort = 20;
 
     protected static ?string $modelLabel = 'review pengadaan';
 
@@ -155,8 +160,10 @@ final class ProcurementReviewResource extends Resource
                 ]),
             ])
             ->recordActions([
-                ViewAction::make(),
-                EditAction::make()->authorize('review'),
+                ViewAction::make()
+                    ->authorize(fn (PurchaseRequest $record): bool => self::allowsReviewAction('view', $record)),
+                EditAction::make()
+                    ->authorize(fn (PurchaseRequest $record): bool => self::allowsReviewAction('review', $record)),
                 Action::make('attachments')
                     ->label('Lampiran')
                     ->icon(Heroicon::OutlinedPaperClip)
@@ -167,7 +174,7 @@ final class ProcurementReviewResource extends Resource
                     ))
                     ->modalSubmitAction(false)
                     ->modalCancelActionLabel('Tutup')
-                    ->authorize('review'),
+                    ->authorize(fn (PurchaseRequest $record): bool => self::allowsReviewAction('review', $record)),
                 Action::make('return')
                     ->label('Kembalikan')
                     ->color('danger')
@@ -175,7 +182,7 @@ final class ProcurementReviewResource extends Resource
                     ->schema([
                         Textarea::make('reason')->label('Alasan pengembalian')->required(),
                     ])
-                    ->authorize('return')
+                    ->authorize(fn (PurchaseRequest $record): bool => self::allowsReviewAction('return', $record))
                     ->action(fn (PurchaseRequest $record, array $data): PurchaseRequest => app(ProcurementReviewService::class)
                         ->returnToRequester($record, (string) $data['reason'])),
                 Action::make('forward')
@@ -185,7 +192,7 @@ final class ProcurementReviewResource extends Resource
                     ->schema([
                         Textarea::make('reason')->label('Catatan review')->nullable(),
                     ])
-                    ->authorize('forward')
+                    ->authorize(fn (PurchaseRequest $record): bool => self::allowsReviewAction('forward', $record))
                     ->action(fn (PurchaseRequest $record, array $data): PurchaseRequest => app(ProcurementReviewService::class)
                         ->forward($record, (string) ($data['reason'] ?? ''))),
                 Action::make('preview_workflow')
@@ -198,16 +205,24 @@ final class ProcurementReviewResource extends Resource
                     ))
                     ->modalSubmitAction(false)
                     ->modalCancelActionLabel('Tutup')
-                    ->authorize('view'),
+                    ->authorize(fn (PurchaseRequest $record): bool => self::allowsReviewAction('view', $record)),
                 Action::make('handoff')
                     ->label('Serahkan ke approval')
                     ->icon(Heroicon::OutlinedArrowRight)
                     ->color('primary')
                     ->requiresConfirmation()
-                    ->authorize('handoff')
+                    ->authorize(fn (PurchaseRequest $record): bool => self::allowsReviewAction('handoff', $record))
                     ->action(fn (PurchaseRequest $record): PurchaseRequest => app(ProcurementReviewService::class)
                         ->handoffToApproval($record)),
             ]);
+
+    }
+
+    private static function allowsReviewAction(string $ability, PurchaseRequest $record): bool
+    {
+        return app(FeatureModuleService::class)->featureIsAvailable(
+            FeatureRegistry::FEATURE_PROCUREMENT_REVIEWS,
+        ) && Gate::allows($ability, $record);
     }
 
     /** @return Builder<PurchaseRequest> */
@@ -227,14 +242,34 @@ final class ProcurementReviewResource extends Resource
 
     public static function canEdit(Model $record): bool
     {
-        return $record instanceof PurchaseRequest && Gate::forUser(auth()->user())->allows('review', $record);
+        return app(FeatureModuleService::class)->allowsResource(
+            self::class,
+            fn (User $user): bool => $record instanceof PurchaseRequest
+                && Gate::forUser($user)->allows('review', $record),
+        );
+    }
+
+    public static function canView(Model $record): bool
+    {
+        return app(FeatureModuleService::class)->allowsResource(
+            self::class,
+            fn (User $user): bool => $record instanceof PurchaseRequest
+                && Gate::forUser($user)->allows('view', $record),
+        );
+    }
+
+    public static function canAccess(): bool
+    {
+        return app(FeatureModuleService::class)->allowsResource(self::class, fn (User $user): bool => app(AuthorizationService::class)->allows($user, 'ViewAny:PurchaseRequest'));
     }
 
     public static function canViewAny(): bool
     {
-        $user = auth()->user();
+        return app(FeatureModuleService::class)->allowsResource(self::class, fn (User $user): bool => app(AuthorizationService::class)->allows($user, 'ViewAny:PurchaseRequest'));
+    }
 
-        return $user instanceof User && $user->is_active && app(AccessContextService::class)->allowedContexts($user)
-            ->contains(fn ($assignment): bool => $assignment->allows(ProcurementPermissions::UPDATE));
+    public static function shouldRegisterNavigation(): bool
+    {
+        return false;
     }
 }

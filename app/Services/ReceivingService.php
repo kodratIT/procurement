@@ -31,6 +31,7 @@ final class ReceivingService
         private readonly DomainTransaction $transaction,
         private readonly MultiOfficeAuthorization $authorization,
         private readonly AttachmentService $attachments,
+        private readonly FeatureModuleService $featureModules,
     ) {}
 
     /** @param array<string, mixed> $data */
@@ -117,6 +118,8 @@ final class ReceivingService
 
     public function status(PurchaseOrder|int $order): string
     {
+        $this->featureModules->assertEnabled(FeatureRegistry::FEATURE_PURCHASE_ORDERS);
+
         $order = $order instanceof PurchaseOrder ? $order : PurchaseOrder::query()->findOrFail($order);
 
         return $this->statusForTotals($order, $this->receivedTotals($order));
@@ -130,6 +133,8 @@ final class ReceivingService
     /** @return array<int, string> */
     public function receivedQuantities(PurchaseOrder|int $order): array
     {
+        $this->featureModules->assertEnabled(FeatureRegistry::FEATURE_PURCHASE_ORDERS);
+
         $order = $order instanceof PurchaseOrder ? $order : PurchaseOrder::query()->findOrFail($order);
 
         return $this->receivedTotals($order);
@@ -138,6 +143,7 @@ final class ReceivingService
     /** @return array<int, string> */
     public function remainingQuantities(PurchaseOrder|int $order): array
     {
+        $this->featureModules->assertEnabled(FeatureRegistry::FEATURE_PURCHASE_ORDERS);
         $order = $order instanceof PurchaseOrder ? $order : PurchaseOrder::query()->findOrFail($order);
         $received = $this->receivedTotals($order);
 
@@ -439,6 +445,8 @@ final class ReceivingService
         if (! $actor instanceof User || ! $actor->is_active || ! $actor->is(auth()->user())) {
             throw new AuthorizationException('An active authenticated receiving actor is required.');
         }
+
+        $this->featureModules->assertEnabled(FeatureRegistry::FEATURE_PURCHASE_ORDERS, $actor);
 
         return $actor;
     }

@@ -176,11 +176,6 @@ class PurchaseOrder extends Model
         return $this->hasMany(PurchaseOrderItem::class)->orderBy('sort_order')->orderBy('id');
     }
 
-    public function revisions(): HasMany
-    {
-        return $this->hasMany(PurchaseOrderRevision::class)->orderBy('revision_number');
-    }
-
     public function goodsReceipts(): HasMany
     {
         return $this->hasMany(GoodsReceipt::class);

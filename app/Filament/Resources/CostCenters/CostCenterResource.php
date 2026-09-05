@@ -4,6 +4,9 @@ namespace App\Filament\Resources\CostCenters;
 
 use App\Filament\Resources\CostCenters\Pages\ManageCostCenters;
 use App\Models\CostCenter;
+use App\Models\User;
+use App\Services\AuthorizationService;
+use App\Services\FeatureModuleService;
 use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Actions\EditAction;
@@ -19,6 +22,7 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rules\Unique;
 
 class CostCenterResource extends Resource
@@ -27,9 +31,33 @@ class CostCenterResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedCalculator;
 
-    protected static ?string $navigationLabel = 'Cost Center';
+    protected static ?string $navigationLabel = 'Cost Centers';
+
+    protected static string|\UnitEnum|null $navigationGroup = 'Organization & Finance';
+
+    protected static ?int $navigationSort = 40;
 
     protected static ?string $modelLabel = 'cost center';
+
+    public static function canAccess(): bool
+    {
+        return app(FeatureModuleService::class)->allowsResource(self::class, fn (User $user): bool => app(AuthorizationService::class)->allows($user, 'ViewAny:CostCenter'));
+    }
+
+    public static function canViewAny(): bool
+    {
+        return app(FeatureModuleService::class)->allowsResource(self::class, fn (User $user): bool => app(AuthorizationService::class)->allows($user, 'ViewAny:CostCenter'));
+    }
+
+    public static function getEloquentQuery(): Builder
+    {
+        $query = parent::getEloquentQuery();
+        $user = Auth::user();
+
+        return $user instanceof User
+            ? $query->acrossContexts('ViewAny:CostCenter')
+            : $query->whereKey(0);
+    }
 
     public static function form(Schema $schema): Schema
     {

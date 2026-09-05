@@ -27,10 +27,13 @@ class RolePermissionSeeder extends Seeder
             ProcurementPermissions::CORRECT_RECEIPT,
             ProcurementPermissions::MANAGE_USERS,
             ProcurementPermissions::MANAGE_ROLES,
+            ProcurementPermissions::MANAGE_FEATURES,
         ],
         'Operasional' => [
             ProcurementPermissions::VIEW,
             ProcurementPermissions::CREATE,
+            ProcurementPermissions::UPDATE,
+            ProcurementPermissions::SUBMIT,
             ProcurementPermissions::RECEIVE,
         ],
         'Pengadaan' => [
@@ -93,5 +96,7 @@ class RolePermissionSeeder extends Seeder
                 collect($permissionNames)->map(fn (string $permissionName): Permission => $permissions[$permissionName])->all(),
             );
         }
+
+        $this->call(ShieldRoleSyncSeeder::class);
     }
 }

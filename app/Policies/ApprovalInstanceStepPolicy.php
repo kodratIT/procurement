@@ -8,13 +8,14 @@ use App\Models\ApprovalInstanceStep;
 use App\Models\ApproverDelegation;
 use App\Models\User;
 use App\Models\UserAssignment;
+use App\Services\FeatureModuleService;
 use App\Support\ProcurementPermissions;
 
 final class ApprovalInstanceStepPolicy
 {
     public function viewAny(User $user): bool
     {
-        return $user->is_active
+        return app(FeatureModuleService::class)->featureIsAvailable('approvals.approval-inbox', $user) && $user->is_active
             && UserAssignment::query()
                 ->currentlyActive()
                 ->where('user_id', $user->getKey())
@@ -25,7 +26,7 @@ final class ApprovalInstanceStepPolicy
     public function view(User $user, ApprovalInstanceStep $approvalInstanceStep): bool
     {
         if (! $user->is_active || ! $approvalInstanceStep->approvalInstance?->isActive()) {
-            return false;
+            return app(FeatureModuleService::class)->featureIsAvailable('approvals.approval-inbox', $user) && false;
         }
 
         $delegated = ApproverDelegation::query()
@@ -51,16 +52,16 @@ final class ApprovalInstanceStepPolicy
 
     public function create(User $user): bool
     {
-        return false;
+        return app(FeatureModuleService::class)->featureIsAvailable('approvals.approval-inbox', $user) && false;
     }
 
     public function update(User $user, ApprovalInstanceStep $approvalInstanceStep): bool
     {
-        return false;
+        return app(FeatureModuleService::class)->featureIsAvailable('approvals.approval-inbox', $user) && false;
     }
 
     public function delete(User $user, ApprovalInstanceStep $approvalInstanceStep): bool
     {
-        return false;
+        return app(FeatureModuleService::class)->featureIsAvailable('approvals.approval-inbox', $user) && false;
     }
 }

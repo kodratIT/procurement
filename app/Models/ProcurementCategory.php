@@ -15,10 +15,12 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Spatie\Activitylog\LogOptions;
+use Spatie\Activitylog\Traits\LogsActivity;
 
 class ProcurementCategory extends Model
 {
-    use HasFactory;
+    use HasFactory, LogsActivity;
 
     public const TYPE_GOODS = ProcurementCategoryType::GOODS->value;
 
@@ -171,5 +173,31 @@ class ProcurementCategory extends Model
             'is_active' => true,
             'disabled_at' => null,
         ])->save());
+    }
+
+    public function getActivitylogOptions(): LogOptions
+    {
+        return LogOptions::defaults()
+            ->useLogName('master-data')
+            ->logOnly([
+                'code',
+                'name',
+                'description',
+                'type',
+                'requires_batch',
+                'requires_jamaah',
+                'requires_vendor',
+                'requires_quotation',
+                'requires_recommendation_reason',
+                'requires_recommendation_evidence',
+                'requires_receipt',
+                'requires_invoice',
+                'requires_po',
+                'workflow_reference',
+                'number_template',
+                'is_active',
+                'disabled_at',
+            ])
+            ->logOnlyDirty();
     }
 }

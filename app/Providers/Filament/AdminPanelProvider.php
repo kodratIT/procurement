@@ -2,8 +2,9 @@
 
 namespace App\Providers\Filament;
 
-use App\Http\Controllers\Auth\KeycloakController;
+use App\Filament\Pages\Auth\Login;
 use App\Http\Middleware\EnsureActiveOffice;
+use App\Http\Middleware\EnsureFeatureModuleEnabled;
 use App\Http\Middleware\RequireApplicationAssignment;
 use App\Services\AccessContextService;
 use BezhanSalleh\FilamentShield\FilamentShieldPlugin;
@@ -33,9 +34,19 @@ class AdminPanelProvider extends PanelProvider
         return $panel
             ->id('admin')
             ->path('admin')
-            ->login([KeycloakController::class, 'redirect'])
+            ->login(Login::class)
+            ->viteTheme('resources/css/filament/admin/theme.css')
             ->colors([
                 'primary' => Color::Amber,
+            ])
+            ->navigationGroups([
+                'Procurement',
+                'Approvals',
+                'Master Data',
+                'Umrah Operations',
+                'Organization & Finance',
+                'Approval',
+                'Settings',
             ])
             ->renderHook(
                 PanelsRenderHook::TOPBAR_START,
@@ -57,15 +68,16 @@ class AdminPanelProvider extends PanelProvider
                 config('filament-logger.activity_resource'),
             ])
             ->plugins([
-                FilamentShieldPlugin::make(),
+                FilamentShieldPlugin::make()
+                    ->navigationGroup('Settings')
+                    ->navigationLabel('Roles')
+                    ->navigationSort(30),
             ])
             ->middleware([
                 EncryptCookies::class,
                 AddQueuedCookiesToResponse::class,
                 StartSession::class,
-                RequireApplicationAssignment::class,
                 AuthenticateSession::class,
-                EnsureActiveOffice::class,
                 ShareErrorsFromSession::class,
                 PreventRequestForgery::class,
                 SubstituteBindings::class,
@@ -77,7 +89,16 @@ class AdminPanelProvider extends PanelProvider
                 EnsureActiveOffice::class,
             ])
             ->authMiddleware([
+                RequireApplicationAssignment::class,
+                EnsureActiveOffice::class,
                 Authenticate::class,
+                EnsureFeatureModuleEnabled::class,
+            ])
+            ->spa()
+            ->spaUrlExceptions([
+                '*/exports/*/download',
+                '*/imports/*/failed-rows/download',
+                '*/auth/keycloak/*',
             ]);
     }
 }

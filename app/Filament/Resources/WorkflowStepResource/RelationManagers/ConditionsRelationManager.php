@@ -31,7 +31,11 @@ class ConditionsRelationManager extends RelationManager
                 array_map(static fn (WorkflowConditionOperator $operator): string => ucfirst(str_replace('_', ' ', $operator->value)), WorkflowConditionOperator::cases()),
             ))->enum(WorkflowConditionOperator::class)->required(),
             Textarea::make('value')->json()->required()->rules([
-                static function (string $attribute, mixed $value, Closure $fail): void {
+                static fn (): Closure => static function (string $attribute, mixed $value, Closure $fail): void {
+                    if (is_array($value)) {
+                        return;
+                    }
+
                     if (! is_string($value) || ! is_array(json_decode($value, true))) {
                         $fail('The condition value must be a JSON array.');
                     }
@@ -45,7 +49,7 @@ class ConditionsRelationManager extends RelationManager
         return $table->columns([
             TextColumn::make('field_key')->searchable(),
             TextColumn::make('operator')->badge(),
-            TextColumn::make('value')->formatStateUsing(static fn (array $state): string => json_encode($state, JSON_THROW_ON_ERROR)),
+            TextColumn::make('value')->formatStateUsing(static fn (mixed $state): string => is_array($state) ? json_encode($state, JSON_THROW_ON_ERROR) : (is_string($state) && $state !== '' ? $state : '—')),
         ])->headerActions([CreateAction::make()])->recordActions([
             EditAction::make(),
             DeleteAction::make()->visible(fn (WorkflowCondition $record): bool => ! $record->workflowStep->workflowVersion->isUsed()),

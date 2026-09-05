@@ -21,7 +21,19 @@ class WorkflowStep extends Model
     protected static function booted(): void
     {
         static::saving(function (self $step): void {
-            if ($step->workflowVersion?->isUsed()) {
+            $immutableFields = [
+                'workflow_version_id',
+                'sequence',
+                'step_type',
+                'approval_mode',
+                'resolver_type',
+                'required_permission',
+                'sla_minutes',
+                'escalation_type',
+                'settings',
+            ];
+
+            if ($step->workflowVersion?->isUsed() && $step->isDirty($immutableFields)) {
                 throw ValidationException::withMessages(['workflow_steps' => 'Steps of a workflow version used by a purchase request are immutable.']);
             }
         });

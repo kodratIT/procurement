@@ -7,6 +7,7 @@ namespace App\Policies;
 use App\Models\ApproverDelegation;
 use App\Models\User;
 use App\Services\AuthorizationService;
+use App\Services\FeatureModuleService;
 use App\Support\ProcurementPermissions;
 
 final class ApproverDelegationPolicy
@@ -15,32 +16,32 @@ final class ApproverDelegationPolicy
 
     public function viewAny(User $user): bool
     {
-        return $this->manage($user);
+        return app(FeatureModuleService::class)->featureIsAvailable('settings.approver-delegations', $user) && $this->manage($user);
     }
 
     public function view(User $user, ApproverDelegation $delegation): bool
     {
-        return $this->manage($user);
+        return app(FeatureModuleService::class)->featureIsAvailable('settings.approver-delegations', $user) && $this->manage($user);
     }
 
     public function create(User $user): bool
     {
-        return $this->manage($user);
+        return app(FeatureModuleService::class)->featureIsAvailable('settings.approver-delegations', $user) && $this->manage($user);
     }
 
     public function update(User $user, ApproverDelegation $delegation): bool
     {
-        return $this->manage($user);
+        return app(FeatureModuleService::class)->featureIsAvailable('settings.approver-delegations', $user) && $this->manage($user);
     }
 
     public function delete(User $user, ApproverDelegation $delegation): bool
     {
-        return $this->manage($user);
+        return app(FeatureModuleService::class)->featureIsAvailable('settings.approver-delegations', $user) && $this->manage($user);
     }
 
     public function deleteAny(User $user): bool
     {
-        return false;
+        return app(FeatureModuleService::class)->featureIsAvailable('settings.approver-delegations', $user) && false;
     }
 
     private function manage(User $user): bool

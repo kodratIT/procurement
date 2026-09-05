@@ -5,9 +5,13 @@ declare(strict_types=1);
 namespace Tests\Feature;
 
 use App\Filament\Resources\ProcurementFields\ProcurementFieldResource;
+use App\Models\Office;
 use App\Models\ProcurementCategory;
 use App\Models\ProcurementField;
+use App\Models\Role;
 use App\Models\User;
+use App\Models\UserAssignment;
+use App\Services\AccessContextService;
 use Database\Seeders\ProcurementRolesSeeder;
 use Filament\Facades\Filament;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -24,8 +28,14 @@ class DynamicFieldBuilderTest extends TestCase
         $panel = Filament::getPanel('admin');
         $admin = User::factory()->create();
         $admin->assignRole('Admin');
+        $office = Office::factory()->create();
+        $adminRole = Role::query()->where('name', 'Admin')->firstOrFail();
+        UserAssignment::factory()->create(['user_id' => $admin->id, 'office_id' => $office->id, 'role_id' => $adminRole->id, 'is_primary' => true]);
         $viewer = User::factory()->create();
         $viewer->assignRole('Viewer');
+        $viewerRole = Role::query()->where('name', 'Viewer')->firstOrFail();
+        $viewerOffice = Office::factory()->create();
+        UserAssignment::factory()->create(['user_id' => $viewer->id, 'office_id' => $viewerOffice->id, 'role_id' => $viewerRole->id, 'is_primary' => true]);
 
         $this->assertContains(ProcurementFieldResource::class, $panel->getResources());
         $this->assertSame(ProcurementField::class, ProcurementFieldResource::getModel());
@@ -39,7 +49,11 @@ class DynamicFieldBuilderTest extends TestCase
         $this->seed(ProcurementRolesSeeder::class);
         $admin = User::factory()->create();
         $admin->assignRole('Admin');
+        $office = Office::factory()->create();
+        $adminRole = Role::query()->where('name', 'Admin')->firstOrFail();
+        $assignment = UserAssignment::factory()->create(['user_id' => $admin->id, 'office_id' => $office->id, 'role_id' => $adminRole->id, 'is_primary' => true]);
         Auth::login($admin);
+        app(AccessContextService::class)->setContext($assignment);
 
         $category = ProcurementCategory::factory()->create();
         $first = ProcurementField::factory()->create([

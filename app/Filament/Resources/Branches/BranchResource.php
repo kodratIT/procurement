@@ -4,6 +4,9 @@ namespace App\Filament\Resources\Branches;
 
 use App\Filament\Resources\Branches\Pages\ManageBranches;
 use App\Models\Branch;
+use App\Models\User;
+use App\Services\AuthorizationService;
+use App\Services\FeatureModuleService;
 use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Actions\EditAction;
@@ -19,6 +22,7 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rules\Unique;
 
 class BranchResource extends Resource
@@ -27,9 +31,33 @@ class BranchResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedBuildingOffice;
 
-    protected static ?string $navigationLabel = 'Cabang';
+    protected static ?string $navigationLabel = 'Branches';
+
+    protected static string|\UnitEnum|null $navigationGroup = 'Organization & Finance';
+
+    protected static ?int $navigationSort = 10;
 
     protected static ?string $modelLabel = 'cabang';
+
+    public static function canAccess(): bool
+    {
+        return app(FeatureModuleService::class)->allowsResource(self::class, fn (User $user): bool => app(AuthorizationService::class)->allows($user, 'ViewAny:Branch'));
+    }
+
+    public static function canViewAny(): bool
+    {
+        return app(FeatureModuleService::class)->allowsResource(self::class, fn (User $user): bool => app(AuthorizationService::class)->allows($user, 'ViewAny:Branch'));
+    }
+
+    public static function getEloquentQuery(): Builder
+    {
+        $query = parent::getEloquentQuery();
+        $user = Auth::user();
+
+        return $user instanceof User
+            ? $query->acrossContexts('ViewAny:Branch')
+            : $query->whereKey(0);
+    }
 
     public static function form(Schema $schema): Schema
     {

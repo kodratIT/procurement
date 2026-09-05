@@ -4,6 +4,9 @@ namespace App\Filament\Resources;
 
 use App\Filament\Exports\ProcurementVariantExporter;
 use App\Models\ProcurementVariant;
+use App\Models\User;
+use App\Services\AuthorizationService;
+use App\Services\FeatureModuleService;
 use Filament\Actions\Action;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
@@ -27,7 +30,11 @@ class ProcurementVariantResource extends Resource
 
     protected static string|\BackedEnum|null $navigationIcon = Heroicon::OutlinedSwatch;
 
-    protected static ?string $navigationLabel = 'Varian / Ukuran';
+    protected static ?string $navigationLabel = 'Variants';
+
+    protected static string|\UnitEnum|null $navigationGroup = 'Master Data';
+
+    protected static ?int $navigationSort = 40;
 
     protected static ?string $modelLabel = 'varian';
 
@@ -102,6 +109,16 @@ class ProcurementVariantResource extends Resource
             ->toolbarActions([
                 ExportBulkAction::make()->exporter(ProcurementVariantExporter::class),
             ]);
+    }
+
+    public static function canAccess(): bool
+    {
+        return app(FeatureModuleService::class)->allowsResource(self::class, fn (User $user): bool => app(AuthorizationService::class)->allows($user, 'ViewAny:ProcurementVariant'));
+    }
+
+    public static function canViewAny(): bool
+    {
+        return app(FeatureModuleService::class)->allowsResource(self::class, fn (User $user): bool => app(AuthorizationService::class)->allows($user, 'ViewAny:ProcurementVariant'));
     }
 
     public static function getPages(): array

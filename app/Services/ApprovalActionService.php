@@ -23,12 +23,14 @@ use Illuminate\Validation\ValidationException;
 
 final class ApprovalActionService
 {
-    private const ACTIONS = ['approve', 'reject', 'return'];
+    private const ACTIONS = ['approve', 'reject', 'return', 'cancel'];
 
     public function __construct(
         private readonly DomainTransaction $transaction,
         private readonly PurchaseRequestTimeline $timeline,
         private readonly ApprovalTaskLifecycleService $tasks,
+        private readonly FeatureModuleService $featureModules,
+        private readonly WorkflowStageService $workflowStages,
         private readonly ?BudgetCheck $budgetCheck = null,
         private readonly ?BudgetReservationService $budgetReservations = null,
     ) {}
@@ -69,6 +71,15 @@ final class ApprovalActionService
         return $this->returnStep($step, $actor, $notes, $metadata);
     }
 
+    public function cancel(
+        ApprovalInstanceStep $step,
+        ?User $actor = null,
+        ?string $notes = null,
+        array $metadata = [],
+    ): ApprovalInstanceStep {
+        return $this->decide($step, 'cancel', $actor, $notes, $metadata);
+    }
+
     /**
      * Apply one approval decision through the sole decision boundary.
      *
@@ -88,6 +99,7 @@ final class ApprovalActionService
             throw new AuthorizationException('An authenticated approver is required.');
         }
 
+        $this->featureModules?->assertEnabled(FeatureRegistry::FEATURE_APPROVAL_INBOX, $actor);
         if (in_array($step->status, ['approved', 'rejected', 'returned', 'skipped', 'expired'], true)) {
             throw ValidationException::withMessages([
                 'approval' => 'This approval task has already been decided.',
@@ -240,7 +252,14 @@ final class ApprovalActionService
             ->first();
 
         if (! $next instanceof ApprovalInstanceStep) {
-            $this->setTerminalStatus($instance, $request, $actor, PurchaseRequest::STATUS_APPROVED, 'approved', 'Approval workflow completed.');
+            $this->setTerminalStatus(
+                $instance,
+                $request,
+                $actor,
+                PurchaseRequest::STATUS_APPROVED,
+                'approved',
+                "Seluruh tahap persetujuan telah selesai. PR {$request->pr_number} telah disetujui.",
+            );
 
             return;
         }
@@ -267,6 +286,26 @@ final class ApprovalActionService
         }
 
         $instance->forceFill(['status' => 'in_progress'])->save();
+
+        $nextStepKey = $next->step_key;
+        if (is_string($nextStepKey) && $nextStepKey !== '' && $request->status !== $nextStepKey) {
+            $fromStatus = $request->status;
+            PurchaseRequest::query()->withoutGlobalScopes()->whereKey($request->getKey())->update([
+                'status' => $nextStepKey,
+                'updated_at' => now(),
+            ]);
+            $request->status = $nextStepKey;
+            $this->timeline->record(
+                $request,
+                $actor,
+                $fromStatus,
+                $nextStepKey,
+                'approval_advance',
+                'advance',
+                "Tahap {$completedStep->label} disetujui oleh {$actor->name}. PR dilanjutkan ke tahap {$next->label} dan menunggu persetujuan {$next->approver_name}.",
+                ['approval_instance_id' => $instance->getKey(), 'next_step_key' => $nextStepKey],
+            );
+        }
     }
 
     private function closeAsTerminal(
@@ -276,8 +315,16 @@ final class ApprovalActionService
         string $action,
         ?string $notes,
     ): void {
-        $status = $action === 'reject' ? PurchaseRequest::STATUS_REJECTED : PurchaseRequest::STATUS_RETURNED;
-        $reason = $action === 'reject' ? 'Approval workflow rejected the purchase request.' : 'Approval workflow returned the purchase request.';
+        $status = match ($action) {
+            'reject' => PurchaseRequest::STATUS_REJECTED,
+            'cancel' => PurchaseRequest::STATUS_CANCELLED,
+            default => PurchaseRequest::STATUS_RETURNED,
+        };
+        $reason = match ($action) {
+            'reject' => 'PR ditolak dan proses persetujuan dihentikan.',
+            'cancel' => 'PR dibatalkan sebelum proses persetujuan selesai.',
+            default => 'PR dikembalikan kepada pengaju untuk diperbaiki.',
+        };
 
         foreach ($instance->steps()->whereIn('status', ['pending', 'queued'])->get() as $task) {
             $skipReason = 'Skipped because the approval workflow reached a terminal decision.';
@@ -302,8 +349,24 @@ final class ApprovalActionService
         string $decision,
         string $note,
     ): void {
+        $this->featureModules->assertEnabled(FeatureRegistry::FEATURE_APPROVAL_INBOX, $actor);
+
+        if ($requestStatus === PurchaseRequest::STATUS_APPROVED
+            && $request->cost_center_id !== null) {
+            $this->featureModules->assertEnabled(FeatureRegistry::FEATURE_BUDGETS, $actor);
+            if (! $this->budgetReservations instanceof BudgetReservationService) {
+                throw new \RuntimeException('Budget reservation service is required for approved cost-centred requests.');
+            }
+        }
+
         $fromStatus = $request->status;
-        $instance->forceFill(['status' => $requestStatus === PurchaseRequest::STATUS_APPROVED ? 'approved' : ($requestStatus === PurchaseRequest::STATUS_REJECTED ? 'rejected' : 'returned')])->save();
+        $instanceStatus = match ($requestStatus) {
+            PurchaseRequest::STATUS_APPROVED => 'approved',
+            PurchaseRequest::STATUS_REJECTED => 'rejected',
+            PurchaseRequest::STATUS_CANCELLED => 'cancelled',
+            default => 'returned',
+        };
+        $instance->forceFill(['status' => $instanceStatus])->save();
         PurchaseRequest::query()->withoutGlobalScopes()->whereKey($request->getKey())->update([
             'status' => $requestStatus,
             'updated_at' => now(),

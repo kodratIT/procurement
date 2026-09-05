@@ -30,7 +30,7 @@ class MultiOfficeAuthorizationTest extends TestCase
 
         $this->assertTrue(PurchaseRequest::query()->pluck('id')->contains($requestA->id));
         $this->assertFalse(PurchaseRequest::query()->pluck('id')->contains($requestB->id));
-        $this->assertFalse($authorization->canUpdate($user, $requestA, true));
+        $this->assertTrue($authorization->canUpdate($user, $requestA, true));
 
         app(AccessContextService::class)->setContext($assignmentB);
         $this->assertTrue($authorization->canUpdate($user, $requestB, true));
@@ -41,10 +41,11 @@ class MultiOfficeAuthorizationTest extends TestCase
     {
         $this->seed(RolePermissionSeeder::class);
         [$user, $officeA, $officeB] = $this->userWithTwoRoles();
+        $unassignedOffice = Office::factory()->create();
         $this->actingAs($user);
 
         $this->expectException(AuthorizationException::class);
-        PurchaseRequest::factory()->create(['office_id' => $officeB->id]);
+        PurchaseRequest::factory()->create(['office_id' => $unassignedOffice->id]);
     }
 
     public function test_non_default_office_mutations_require_confirmation(): void

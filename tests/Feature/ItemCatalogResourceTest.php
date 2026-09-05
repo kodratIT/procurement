@@ -5,10 +5,13 @@ namespace Tests\Feature;
 use App\Filament\Resources\ProcurementItemResource;
 use App\Filament\Resources\ProcurementUnitResource;
 use App\Filament\Resources\ProcurementVariantResource;
+use App\Models\Office;
 use App\Models\ProcurementItem;
 use App\Models\ProcurementUnit;
 use App\Models\ProcurementVariant;
+use App\Models\Role;
 use App\Models\User;
+use App\Models\UserAssignment;
 use Database\Seeders\ProcurementRolesSeeder;
 use Filament\Facades\Filament;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -25,8 +28,14 @@ class ItemCatalogResourceTest extends TestCase
         $panel = Filament::getPanel('admin');
         $admin = User::factory()->create();
         $admin->assignRole('Admin');
+        $office = Office::factory()->create();
+        $adminRole = Role::query()->where('name', 'Admin')->firstOrFail();
+        UserAssignment::factory()->create(['user_id' => $admin->id, 'office_id' => $office->id, 'role_id' => $adminRole->id, 'is_primary' => true]);
         $viewer = User::factory()->create();
         $viewer->assignRole('Viewer');
+        $viewerRole = Role::query()->where('name', 'Viewer')->firstOrFail();
+        $viewerOffice = Office::factory()->create();
+        UserAssignment::factory()->create(['user_id' => $viewer->id, 'office_id' => $viewerOffice->id, 'role_id' => $viewerRole->id, 'is_primary' => true]);
 
         $this->assertContains(ProcurementItemResource::class, $panel->getResources());
         $this->assertContains(ProcurementUnitResource::class, $panel->getResources());
@@ -62,6 +71,9 @@ class ItemCatalogResourceTest extends TestCase
         $this->seed(ProcurementRolesSeeder::class);
         $admin = User::factory()->create();
         $admin->assignRole('Admin');
+        $office = Office::factory()->create();
+        $adminRole = Role::query()->where('name', 'Admin')->firstOrFail();
+        UserAssignment::factory()->create(['user_id' => $admin->id, 'office_id' => $office->id, 'role_id' => $adminRole->id, 'is_primary' => true]);
         $item = ProcurementItem::factory()->create();
         $variant = ProcurementVariant::factory()->create(['item_id' => $item->id]);
 

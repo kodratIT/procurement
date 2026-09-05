@@ -31,6 +31,7 @@ final class SampleShipmentReceiptService
         private readonly DomainTransaction $transaction,
         private readonly MultiOfficeAuthorization $authorization,
         private readonly AttachmentService $attachments,
+        private readonly FeatureModuleService $featureModules,
     ) {}
 
     /** @param array<string, mixed> $data */
@@ -351,8 +352,10 @@ final class SampleShipmentReceiptService
     {
         $actor ??= auth()->user();
         if (! $actor instanceof User || ! $actor->is_active || ! $actor->is(auth()->user())) {
-            throw new AuthorizationException('An active authenticated sample receipt actor is required.');
+            throw new AuthorizationException('An active authenticated shipment receipt actor is required.');
         }
+
+        $this->featureModules->assertEnabled(FeatureRegistry::FEATURE_SAMPLE_SHIPMENTS, $actor);
 
         return $actor;
     }

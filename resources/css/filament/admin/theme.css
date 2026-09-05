@@ -1,0 +1,29 @@
+@import '../../../../vendor/filament/filament/resources/css/theme.css';
+@import '../../../../vendor/leek/filament-header-filters/resources/css/filament-header-filters.css';
+@import '../../progress-stepper-custom.css';
+
+@source '../../../../app/Filament/**/*';
+@source '../../../../resources/views/filament/**/*.blade.php';
+
+/* safelist for ApproverMapping timeline dark mode */
+@source inline("dark:bg-gray-800 dark:bg-amber-900 dark:bg-green-900 dark:bg-red-900 dark:bg-yellow-900 dark:text-green-200 dark:text-red-200 dark:text-yellow-200 dark:text-gray-200 dark:text-gray-300 dark:text-gray-100 dark:border-amber-600 dark:ring-amber-700 dark:ring-green-700 dark:ring-red-700 dark:ring-yellow-700 dark:ring-gray-600 dark:ring-gray-700");
+
+/* Modal: window fixed, scroll hanya di dalam content */
+.fi-modal:not(.fi-modal-slide-over):not(.fi-width-screen) > .fi-modal-window-ctn {
+    overflow: hidden;
+}
+.fi-modal:not(.fi-modal-slide-over):not(.fi-width-screen) > .fi-modal-window-ctn > .fi-modal-window {
+    max-height: calc(100dvh - 2rem);
+    overflow: hidden;
+}
+.fi-modal:not(.fi-modal-slide-over) .fi-modal-header,
+.fi-modal:not(.fi-modal-slide-over) .fi-modal-footer {
+    flex-shrink: 0;
+}
+.fi-modal:not(.fi-modal-slide-over) .fi-modal-content {
+    flex: 1 1 auto;
+    overflow-y: auto;
+    overflow-x: hidden;
+    overscroll-behavior: contain;
+    min-height: 0;
+}

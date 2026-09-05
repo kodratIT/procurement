@@ -60,6 +60,10 @@ class WorkflowResolver
             : (is_string($request->category?->workflow_reference) && $request->category->workflow_reference !== ''
                 ? Workflow::query()->where('code', $request->category->workflow_reference)->where('is_active', true)->first()
                 : null);
+        // ponytail: JAMAAH/HOTEL/TRANSPORT workflows never seeded — fallback to standard-procurement
+        if (! $configuredWorkflow instanceof Workflow) {
+            $configuredWorkflow = Workflow::query()->where('code', 'standard-procurement')->where('is_active', true)->first();
+        }
         $reference = $configuredWorkflow?->code ?? $request->category?->workflow_reference;
         $activeVersion = $configuredWorkflow?->activeVersion();
 
@@ -72,7 +76,6 @@ class WorkflowResolver
                 'workflow' => 'No active approval workflow is configured for this procurement category.',
             ]);
         }
-
         $context = $this->requestContext($request);
         $steps = $activeVersion?->steps()->with('conditions')->get() ?? collect();
         if ($steps->isEmpty()) {
@@ -218,6 +221,7 @@ class WorkflowResolver
 
         return [
             'step_order' => (int) $step->sequence,
+            'workflow_step_id' => $step->getKey(),
             'step_key' => $stepKey,
             'label' => $step->name,
             'step_type' => $step->step_type?->value ?? (string) $step->step_type,
@@ -277,6 +281,7 @@ class WorkflowResolver
 
         return [
             'step_order' => (int) $step->sequence,
+            'workflow_step_id' => $step->getKey(),
             'step_key' => (string) (($settings['step_key'] ?? null) ?: Str::snake($step->name)),
             'label' => $step->name,
             'step_type' => $step->step_type?->value ?? (string) $step->step_type,

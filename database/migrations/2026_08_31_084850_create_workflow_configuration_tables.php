@@ -76,7 +76,7 @@ return new class extends Migration
             $table->boolean('is_active')->default(true);
             $table->timestamps();
             $table->index(['workflow_id', 'is_active', 'priority']);
-            $table->index(['office_id', 'branch_id', 'department_id', 'category_id']);
+            $table->index(['office_id', 'branch_id', 'department_id', 'category_id'], 'workflow_bindings_scope_index');
         });
 
         Schema::table('approval_instances', function (Blueprint $table): void {

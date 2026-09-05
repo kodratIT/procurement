@@ -5,6 +5,9 @@ namespace App\Filament\Resources\Departments;
 use App\Filament\Resources\Departments\Pages\ManageDepartments;
 use App\Models\Branch;
 use App\Models\Department;
+use App\Models\User;
+use App\Services\AuthorizationService;
+use App\Services\FeatureModuleService;
 use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Actions\EditAction;
@@ -20,6 +23,7 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rules\Unique;
 
 class DepartmentResource extends Resource
@@ -28,9 +32,33 @@ class DepartmentResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedBuildingOffice2;
 
-    protected static ?string $navigationLabel = 'Departemen';
+    protected static ?string $navigationLabel = 'Departments';
+
+    protected static string|\UnitEnum|null $navigationGroup = 'Organization & Finance';
+
+    protected static ?int $navigationSort = 30;
 
     protected static ?string $modelLabel = 'departemen';
+
+    public static function canAccess(): bool
+    {
+        return app(FeatureModuleService::class)->allowsResource(self::class, fn (User $user): bool => app(AuthorizationService::class)->allows($user, 'ViewAny:Department'));
+    }
+
+    public static function canViewAny(): bool
+    {
+        return app(FeatureModuleService::class)->allowsResource(self::class, fn (User $user): bool => app(AuthorizationService::class)->allows($user, 'ViewAny:Department'));
+    }
+
+    public static function getEloquentQuery(): Builder
+    {
+        $query = parent::getEloquentQuery();
+        $user = Auth::user();
+
+        return $user instanceof User
+            ? $query->acrossContexts('ViewAny:Department')
+            : $query->whereKey(0);
+    }
 
     public static function form(Schema $schema): Schema
     {

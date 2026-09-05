@@ -13,8 +13,9 @@ use App\Filament\Resources\Invoices\Schemas\InvoiceInfolist;
 use App\Filament\Resources\Invoices\Tables\InvoicesTable;
 use App\Models\Invoice;
 use App\Models\User;
+use App\Services\AuthorizationService;
+use App\Services\FeatureModuleService;
 use App\Services\MultiOfficeAuthorization;
-use App\Support\ProcurementPermissions;
 use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
@@ -30,6 +31,10 @@ final class InvoiceResource extends Resource
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedReceiptPercent;
 
     protected static ?string $navigationLabel = 'Invoices';
+
+    protected static string|\UnitEnum|null $navigationGroup = 'Procurement';
+
+    protected static ?int $navigationSort = 40;
 
     protected static ?string $modelLabel = 'invoice';
 
@@ -63,7 +68,7 @@ final class InvoiceResource extends Resource
             return parent::getEloquentQuery()->whereKey(0);
         }
 
-        return app(MultiOfficeAuthorization::class)->scopeForUser(
+        return app(MultiOfficeAuthorization::class)->scopeForCurrentContext(
             parent::getEloquentQuery()->with([
                 'purchaseOrder.items',
                 'purchaseOrder.goodsReceipts.items',
@@ -74,19 +79,18 @@ final class InvoiceResource extends Resource
                 'attachments',
             ]),
             $user,
-            ProcurementPermissions::VIEW,
+            'ViewAny:Invoice',
         );
+    }
+
+    public static function canAccess(): bool
+    {
+        return app(FeatureModuleService::class)->allowsResource(self::class, fn (User $user): bool => app(AuthorizationService::class)->allows($user, 'ViewAny:Invoice'));
     }
 
     public static function canViewAny(): bool
     {
-        $user = Auth::user();
-
-        return $user instanceof User
-            && $user->is_active
-            && $user->assignments()->currentlyActive()->get()->contains(
-                fn ($assignment): bool => $assignment->allows(ProcurementPermissions::VIEW),
-            );
+        return app(FeatureModuleService::class)->allowsResource(self::class, fn (User $user): bool => app(AuthorizationService::class)->allows($user, 'ViewAny:Invoice'));
     }
 
     public static function getPages(): array

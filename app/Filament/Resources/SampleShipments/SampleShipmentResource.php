@@ -14,8 +14,9 @@ use App\Filament\Resources\SampleShipments\Tables\SampleShipmentsTable;
 use App\Models\SampleShipment;
 use App\Models\User;
 use App\Services\AccessContextService;
+use App\Services\AuthorizationService;
+use App\Services\FeatureModuleService;
 use App\Services\MultiOfficeAuthorization;
-use App\Support\ProcurementPermissions;
 use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
@@ -30,7 +31,11 @@ final class SampleShipmentResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedTruck;
 
-    protected static ?string $navigationLabel = 'Sample shipments';
+    protected static ?string $navigationLabel = 'Sample Shipments';
+
+    protected static string|\UnitEnum|null $navigationGroup = 'Umrah Operations';
+
+    protected static ?int $navigationSort = 40;
 
     protected static ?string $modelLabel = 'sample shipment';
 
@@ -59,7 +64,7 @@ final class SampleShipmentResource extends Resource
             return parent::getEloquentQuery()->whereKey(0);
         }
 
-        $query = app(MultiOfficeAuthorization::class)->scopeForUser(
+        $query = app(MultiOfficeAuthorization::class)->scopeForCurrentContext(
             parent::getEloquentQuery()->with([
                 'purchaseOrder',
                 'senderOffice',
@@ -73,10 +78,10 @@ final class SampleShipmentResource extends Resource
                 'attachments',
             ]),
             $user,
-            ProcurementPermissions::VIEW,
+            'ViewAny:SampleShipment',
         );
         $receiverOfficeIds = app(AccessContextService::class)->allowedAssignments($user)
-            ->filter(fn ($assignment): bool => $assignment->allows(ProcurementPermissions::VIEW))
+            ->filter(fn ($assignment): bool => $assignment->allows('ViewAny:SampleShipment'))
             ->pluck('office_id')
             ->unique()
             ->values()
@@ -87,11 +92,14 @@ final class SampleShipmentResource extends Resource
             : $query->orWhereIn('sample_shipments.receiver_office_id', $receiverOfficeIds);
     }
 
+    public static function canAccess(): bool
+    {
+        return app(FeatureModuleService::class)->allowsResource(self::class, fn (User $user): bool => app(AuthorizationService::class)->allows($user, 'ViewAny:SampleShipment'));
+    }
+
     public static function canViewAny(): bool
     {
-        $user = Auth::user();
-
-        return $user instanceof User && app(MultiOfficeAuthorization::class)->canView($user);
+        return app(FeatureModuleService::class)->allowsResource(self::class, fn (User $user): bool => app(AuthorizationService::class)->allows($user, 'ViewAny:SampleShipment'));
     }
 
     /** @return array<string, class-string> */
